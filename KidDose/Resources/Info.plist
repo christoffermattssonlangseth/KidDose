@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- ───── Required for CloudKit / Remote Notifications ───── -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>remote-notification</string>
+        <string>fetch</string>
+    </array>
+
+    <!-- ───── Notification permission descriptions ───── -->
+    <key>NSUserNotificationUsageDescription</key>
+    <string>KidDose sends alerts when a medication interval is complete so you know it's safe to give the next dose — including at night when your child is unwell.</string>
+
+    <key>NSCriticalAlertUsageDescription</key>
+    <string>KidDose uses Critical Alerts to wake you even when your phone is on silent or Do Not Disturb. This ensures you never miss a dose window during the night when your child is sick.</string>
+
+    <!-- ───── Standard system keys ───── -->
+    <key>CFBundleName</key>
+    <string>KidDose</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>KidDose</string>
+
+    <key>CFBundleIdentifier</key>
+    <string>com.yourname.kiddose</string>
+
+    <key>CFBundleVersion</key>
+    <string>1</string>
+
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+
+    <key>UILaunchScreen</key>
+    <dict/>
+
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>armv7</string>
+    </array>
+
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+</dict>
+</plist>

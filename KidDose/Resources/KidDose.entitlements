@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- iCloud + CloudKit -->
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+        <string>CloudKit</string>
+    </array>
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+        <string>iCloud.com.yourname.kiddose</string>
+    </array>
+    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
+    <string>$(TeamIdentifierPrefix)com.yourname.kiddose</string>
+
+    <!-- CloudKit Sharing -->
+    <key>com.apple.developer.icloud-container-development-container-identifiers</key>
+    <array>
+        <string>iCloud.com.yourname.kiddose</string>
+    </array>
+
+    <!-- Push Notifications (for CloudKit silent pushes) -->
+    <key>aps-environment</key>
+    <string>development</string>
+
+    <!--
+        Critical Alerts requires an explicit Apple entitlement.
+        Apply at: https://developer.apple.com/contact/request/notifications-critical-alerts-entitlement/
+        Once approved, add the following key:
+    -->
+    <!-- <key>com.apple.developer.usernotifications.critical-alerts</key>
+    <true/> -->
+</dict>
+</plist>

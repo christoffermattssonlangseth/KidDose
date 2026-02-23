@@ -1,0 +1,454 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA000001 /* KidDoseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* KidDoseApp.swift */; };
+		AA000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002 /* AppDelegate.swift */; };
+		AA000003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100003 /* ContentView.swift */; };
+		AA000010 /* Child.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100010 /* Child.swift */; };
+		AA000011 /* DoseLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100011 /* DoseLog.swift */; };
+		AA000012 /* Medication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100012 /* Medication.swift */; };
+		AA000020 /* DoseViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100020 /* DoseViewModel.swift */; };
+		AA000030 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100030 /* NotificationManager.swift */; };
+		AA000031 /* CloudKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100031 /* CloudKitService.swift */; };
+		AA000040 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100040 /* HomeView.swift */; };
+		AA000041 /* MedicationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100041 /* MedicationCard.swift */; };
+		AA000050 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100050 /* HistoryView.swift */; };
+		AA000060 /* ChildrenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100060 /* ChildrenView.swift */; };
+		AA000061 /* AddChildSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100061 /* AddChildSheet.swift */; };
+		AA000062 /* CloudSharingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100062 /* CloudSharingController.swift */; };
+		AA000070 /* iCloudBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100070 /* iCloudBanner.swift */; };
+		AA000071 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100071 /* ColorExtensions.swift */; };
+		AA000080 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = AA100080 /* Info.plist */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AA100001 /* KidDoseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidDoseApp.swift; sourceTree = "<group>"; };
+		AA100002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		AA100003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		AA100010 /* Child.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Child.swift; sourceTree = "<group>"; };
+		AA100011 /* DoseLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseLog.swift; sourceTree = "<group>"; };
+		AA100012 /* Medication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Medication.swift; sourceTree = "<group>"; };
+		AA100020 /* DoseViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseViewModel.swift; sourceTree = "<group>"; };
+		AA100030 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		AA100031 /* CloudKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitService.swift; sourceTree = "<group>"; };
+		AA100040 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		AA100041 /* MedicationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationCard.swift; sourceTree = "<group>"; };
+		AA100050 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		AA100060 /* ChildrenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChildrenView.swift; sourceTree = "<group>"; };
+		AA100061 /* AddChildSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddChildSheet.swift; sourceTree = "<group>"; };
+		AA100062 /* CloudSharingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSharingController.swift; sourceTree = "<group>"; };
+		AA100070 /* iCloudBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudBanner.swift; sourceTree = "<group>"; };
+		AA100071 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
+		AA100080 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA100081 /* KidDose.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.entitlements; sourceTree = "<group>"; };
+		AAPROD001 /* KidDose.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KidDose.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AABP0001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AAGRP0000 /* root */ = {
+			isa = PBXGroup;
+			children = (
+				AAGRP0001 /* KidDose */,
+				AAGRP00FF /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AAGRP00FF /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AAPROD001 /* KidDose.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AAGRP0001 /* KidDose */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001 /* KidDoseApp.swift */,
+				AA100002 /* AppDelegate.swift */,
+				AAGRP0002 /* Views */,
+				AAGRP0003 /* Models */,
+				AAGRP0004 /* ViewModels */,
+				AAGRP0005 /* Services */,
+				AAGRP0006 /* Resources */,
+			);
+			path = KidDose;
+			sourceTree = "<group>";
+		};
+		AAGRP0002 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AA100003 /* ContentView.swift */,
+				AAGRP0010 /* Home */,
+				AAGRP0011 /* History */,
+				AAGRP0012 /* Children */,
+				AAGRP0013 /* Shared */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AAGRP0010 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				AA100040 /* HomeView.swift */,
+				AA100041 /* MedicationCard.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		AAGRP0011 /* History */ = {
+			isa = PBXGroup;
+			children = (
+				AA100050 /* HistoryView.swift */,
+			);
+			path = History;
+			sourceTree = "<group>";
+		};
+		AAGRP0012 /* Children */ = {
+			isa = PBXGroup;
+			children = (
+				AA100060 /* ChildrenView.swift */,
+				AA100061 /* AddChildSheet.swift */,
+				AA100062 /* CloudSharingController.swift */,
+			);
+			path = Children;
+			sourceTree = "<group>";
+		};
+		AAGRP0013 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				AA100070 /* iCloudBanner.swift */,
+				AA100071 /* ColorExtensions.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		AAGRP0003 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AA100010 /* Child.swift */,
+				AA100011 /* DoseLog.swift */,
+				AA100012 /* Medication.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AAGRP0004 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				AA100020 /* DoseViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		AAGRP0005 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				AA100030 /* NotificationManager.swift */,
+				AA100031 /* CloudKitService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		AAGRP0006 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				AA100080 /* Info.plist */,
+				AA100081 /* KidDose.entitlements */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AATGT0001 /* KidDose */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AACFL0001 /* Build configuration list for PBXNativeTarget "KidDose" */;
+			buildPhases = (
+				AABP0000 /* Sources */,
+				AABP0001 /* Frameworks */,
+				AABP0002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KidDose;
+			productName = KidDose;
+			productReference = AAPROD001 /* KidDose.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AAPROJ001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					AATGT0001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = AACFL0000 /* Build configuration list for PBXProject "KidDose" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AAGRP0000;
+			productRefGroup = AAGRP00FF /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AATGT0001 /* KidDose */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AABP0002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AABP0000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000001 /* KidDoseApp.swift in Sources */,
+				AA000002 /* AppDelegate.swift in Sources */,
+				AA000003 /* ContentView.swift in Sources */,
+				AA000010 /* Child.swift in Sources */,
+				AA000011 /* DoseLog.swift in Sources */,
+				AA000012 /* Medication.swift in Sources */,
+				AA000020 /* DoseViewModel.swift in Sources */,
+				AA000030 /* NotificationManager.swift in Sources */,
+				AA000031 /* CloudKitService.swift in Sources */,
+				AA000040 /* HomeView.swift in Sources */,
+				AA000041 /* MedicationCard.swift in Sources */,
+				AA000050 /* HistoryView.swift in Sources */,
+				AA000060 /* ChildrenView.swift in Sources */,
+				AA000061 /* AddChildSheet.swift in Sources */,
+				AA000062 /* CloudSharingController.swift in Sources */,
+				AA000070 /* iCloudBanner.swift in Sources */,
+				AA000071 /* ColorExtensions.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AAXBC0001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		AAXBC0002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AAXBC0003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = KidDose/Resources/KidDose.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidDose/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yourname.kiddose;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AAXBC0004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = KidDose/Resources/KidDose.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidDose/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yourname.kiddose;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AACFL0000 /* Build configuration list for PBXProject "KidDose" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAXBC0001 /* Debug */,
+				AAXBC0002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AACFL0001 /* Build configuration list for PBXNativeTarget "KidDose" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAXBC0003 /* Debug */,
+				AAXBC0004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = AAPROJ001 /* Project object */;
+}
