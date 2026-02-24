@@ -7,7 +7,15 @@ struct MedicationCard: View {
     @Environment(DoseViewModel.self) private var viewModel
     @Environment(\.modelContext) private var context
 
+    @State private var selectedInterval: Double
     @State private var feedbackTrigger: Bool = false
+
+    init(medication: Medication, child: Child) {
+        self.medication = medication
+        self.child = child
+        // Default to the medication's standard interval.
+        _selectedInterval = State(initialValue: medication.intervalHours)
+    }
 
     var canGive: Bool { viewModel.canGiveDose(for: medication, child: child) }
     var nextDate: Date? { viewModel.nextDoseDate(for: medication, child: child) }
@@ -15,7 +23,8 @@ struct MedicationCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header row
+
+            // ── Header ──────────────────────────────────────────────
             HStack {
                 Image(systemName: medication.iconName)
                     .font(.title2)
@@ -32,7 +41,7 @@ struct MedicationCard: View {
 
             Divider()
 
-            // Last dose info
+            // ── Last dose ────────────────────────────────────────────
             if let last = lastDose {
                 HStack {
                     Image(systemName: "clock")
@@ -60,17 +69,37 @@ struct MedicationCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            // Live countdown
+            // ── Live countdown ───────────────────────────────────────
             if let next = nextDate {
                 CountdownView(targetDate: next, medication: medication)
             }
 
-            // Give Dose button
+            // ── Interval picker (ibuprofen only) ─────────────────────
+            if medication.availableIntervals.count > 1 {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Interval for next dose")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker("Interval", selection: $selectedInterval) {
+                        ForEach(medication.availableIntervals, id: \.self) { hours in
+                            Text("Every \(Int(hours))h").tag(hours)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+
+            // ── Give Dose button ─────────────────────────────────────
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     feedbackTrigger.toggle()
                 }
-                viewModel.logDose(medication: medication, for: child, context: context)
+                viewModel.logDose(
+                    medication: medication,
+                    intervalHours: selectedInterval,
+                    for: child,
+                    context: context
+                )
             } label: {
                 Label("Give Dose", systemImage: "plus.circle.fill")
                     .frame(maxWidth: .infinity)

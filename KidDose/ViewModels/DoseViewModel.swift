@@ -1,6 +1,18 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Scheduled Dose (upcoming)
+
+/// A future dose window computed from the last logged dose for a child + medication.
+struct ScheduledDose: Identifiable {
+    let id = UUID()
+    let child: Child
+    let medication: Medication
+    let nextDate: Date
+}
+
+// MARK: - DoseViewModel
+
 /// Central view model for KidDose, observable by all views.
 @Observable
 final class DoseViewModel {
@@ -8,8 +20,6 @@ final class DoseViewModel {
     // MARK: - iCloud Status
 
     var iCloudAvailable: Bool = true
-
-    // MARK: - iCloud Status Check
 
     @MainActor
     func refreshiCloudStatus() async {
@@ -21,39 +31,59 @@ final class DoseViewModel {
     /// Whether a dose of `medication` can be given to `child` right now.
     func canGiveDose(for medication: Medication, child: Child) -> Bool {
         guard let lastDose = child.lastDose(for: medication) else { return true }
-        let nextAllowed = lastDose.timestamp.addingTimeInterval(medication.intervalHours * 3600)
+        let interval = effectiveInterval(lastDose: lastDose, medication: medication)
+        let nextAllowed = lastDose.timestamp.addingTimeInterval(interval * 3600)
         return Date.now >= nextAllowed
     }
 
     /// The date at which the next dose is allowed, or nil if allowed now.
     func nextDoseDate(for medication: Medication, child: Child) -> Date? {
         guard let lastDose = child.lastDose(for: medication) else { return nil }
-        let nextAllowed = lastDose.timestamp.addingTimeInterval(medication.intervalHours * 3600)
+        let interval = effectiveInterval(lastDose: lastDose, medication: medication)
+        let nextAllowed = lastDose.timestamp.addingTimeInterval(interval * 3600)
         return Date.now < nextAllowed ? nextAllowed : nil
+    }
+
+    /// All future dose windows across the given children, sorted soonest first.
+    func upcomingDoses(for children: [Child]) -> [ScheduledDose] {
+        var result: [ScheduledDose] = []
+        for child in children {
+            for med in Medication.allCases {
+                if let next = nextDoseDate(for: med, child: child) {
+                    result.append(ScheduledDose(child: child, medication: med, nextDate: next))
+                }
+            }
+        }
+        return result.sorted { $0.nextDate < $1.nextDate }
     }
 
     // MARK: - Logging
 
-    /// Logs a dose, schedules a notification, and triggers haptic feedback.
+    /// Logs a dose with the specified interval, schedules a notification.
     @MainActor
     func logDose(
         medication: Medication,
+        intervalHours: Double,
         for child: Child,
         context: ModelContext
     ) {
         let givenBy = UIDevice.current.name
-        let log = DoseLog(medication: medication, givenBy: givenBy, child: child)
+        let log = DoseLog(
+            medication: medication,
+            intervalHours: intervalHours,
+            givenBy: givenBy,
+            child: child
+        )
         context.insert(log)
         try? context.save()
 
-        // Schedule a Critical Alert for when next dose is allowed.
-        scheduleNotification(for: child, medication: medication)
+        scheduleNotification(for: child, medication: medication, intervalHours: intervalHours)
     }
 
     // MARK: - Notifications
 
-    func scheduleNotification(for child: Child, medication: Medication) {
-        let nextAllowed = Date.now.addingTimeInterval(medication.intervalHours * 3600)
+    func scheduleNotification(for child: Child, medication: Medication, intervalHours: Double) {
+        let nextAllowed = Date.now.addingTimeInterval(intervalHours * 3600)
         NotificationManager.shared.scheduleDoseReady(
             childName: child.name,
             medication: medication,
@@ -63,17 +93,14 @@ final class DoseViewModel {
 
     // MARK: - Stats
 
-    /// Returns a dictionary of [medicationDisplayName: count] for the given child filter.
-    func stats(for children: [Child]?) -> [String: Int] {
+    /// Returns a dictionary of [medicationDisplayName: count] for the given children.
+    func stats(for children: [Child]) -> [String: Int] {
         var result: [String: Int] = [:]
         for med in Medication.allCases {
-            let count: Int
-            if let children = children {
-                count = children.flatMap(\.doses).filter { $0.medication == med.rawValue }.count
-            } else {
-                count = 0
-            }
-            result[med.displayName] = count
+            result[med.displayName] = children
+                .flatMap(\.doses)
+                .filter { $0.medication == med.rawValue }
+                .count
         }
         return result
     }
@@ -84,5 +111,13 @@ final class DoseViewModel {
         Task {
             await CloudKitService.shared.setupSubscriptionIfNeeded()
         }
+    }
+
+    // MARK: - Private Helpers
+
+    /// Returns the interval to use when computing next-dose time.
+    /// Falls back to the medication default for legacy records (usedIntervalHours == 0).
+    private func effectiveInterval(lastDose: DoseLog, medication: Medication) -> Double {
+        lastDose.usedIntervalHours > 0 ? lastDose.usedIntervalHours : medication.intervalHours
     }
 }
