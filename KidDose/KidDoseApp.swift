@@ -10,19 +10,24 @@ struct KidDoseApp: App {
     @State private var viewModel = DoseViewModel()
 
     init() {
-        // Configure SwiftData with CloudKit sync.
         let schema = Schema([Child.self, DoseLog.self])
-        let config = ModelConfiguration(
-            schema: schema,
-            cloudKitDatabase: .private("iCloud.com.yourname.kiddose")
-        )
-        do {
-            modelContainer = try ModelContainer(for: schema, configurations: [config])
-        } catch {
-            // Fallback: local-only storage if CloudKit container cannot be reached.
-            print("[KidDoseApp] CloudKit container error — falling back to local store: \(error)")
-            let localConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-            modelContainer = try! ModelContainer(for: schema, configurations: [localConfig])
+
+        // Try CloudKit-backed store first, then fall back to local-only.
+        if let container = try? ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(
+                schema: schema,
+                cloudKitDatabase: .private("iCloud.com.yourname.kiddose")
+            )]
+        ) {
+            modelContainer = container
+        } else {
+            print("[KidDoseApp] CloudKit unavailable — using local store")
+            modelContainer = (try? ModelContainer(for: schema)) ?? {
+                // Last resort: in-memory store so the app at least launches.
+                let memoryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                return try! ModelContainer(for: schema, configurations: [memoryConfig])
+            }()
         }
     }
 
