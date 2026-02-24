@@ -378,18 +378,31 @@ struct CountdownView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = targetDate.timeIntervalSince(context.date)
             if remaining > 0 {
-                HStack(spacing: 6) {
-                    Image(systemName: "timer")
-                        .foregroundStyle(medication.color)
-                    Text(formattedCountdown(remaining))
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(medication.color)
-                    Text("until next dose")
-                        .font(.subheadline)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "timer")
+                            .foregroundStyle(medication.color)
+                        Text(formattedCountdown(remaining))
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(medication.color)
+                        Text("until next dose")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("Ready at \(formattedTime(targetDate))")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .padding(.leading, 22)
                 }
             }
         }
+    }
+
+    private func formattedTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
     }
 
     private func formattedCountdown(_ interval: TimeInterval) -> String {

@@ -6,6 +6,7 @@ struct HomeView: View {
     @Query(sort: \Child.name) private var children: [Child]
 
     @State private var selectedChildID: PersistentIdentifier?
+    @State private var showAlarms = false
 
     var selectedChild: Child? {
         guard let id = selectedChildID else { return children.first }
@@ -78,6 +79,19 @@ struct HomeView: View {
             }
             .navigationTitle("KidDose")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showAlarms = true
+                    } label: {
+                        Image(systemName: "bell.badge")
+                    }
+                }
+            }
+            .sheet(isPresented: $showAlarms) {
+                ScheduledAlarmsView()
+                    .presentationDetents([.medium, .large])
+            }
             .onAppear {
                 if selectedChildID == nil || !children.map(\.persistentModelID).contains(selectedChildID) {
                     selectedChildID = children.first?.persistentModelID

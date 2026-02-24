@@ -30,8 +30,8 @@ enum Medication: String, CaseIterable, Codable {
 
     var color: Color {
         switch self {
-        case .ibuprofen:    return .orange
-        case .paracetamol:  return .blue
+        case .ibuprofen:    return .orange                                          // greyscale ≈ 0.64 (lighter)
+        case .paracetamol:  return Color(red: 0.10, green: 0.28, blue: 0.72)       // greyscale ≈ 0.26 (darker)
         }
     }
 
