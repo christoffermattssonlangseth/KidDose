@@ -14,6 +14,7 @@ struct HistoryView: View {
     @Query(sort: \Child.name) private var children: [Child]
     @Query(sort: \DoseLog.timestamp, order: .reverse) private var allDoses: [DoseLog]
     @Environment(DoseViewModel.self) private var viewModel
+    @Environment(\.modelContext) private var context
 
     @State private var mode: HistoryMode = .past
     @State private var selectedChildID: PersistentIdentifier? = nil   // nil = All
@@ -116,8 +117,11 @@ struct HistoryView: View {
                 .foregroundStyle(.secondary)
             Spacer()
         } else {
-            List(filteredDoses) { dose in
-                DoseRowView(dose: dose)
+            List {
+                ForEach(filteredDoses) { dose in
+                    DoseRowView(dose: dose)
+                }
+                .onDelete(perform: deleteDoses)
             }
             .listStyle(.plain)
         }
@@ -145,6 +149,19 @@ struct HistoryView: View {
                 UpcomingHistoryRow(item: item)
             }
             .listStyle(.plain)
+        }
+    }
+
+    // MARK: Delete
+
+    private func deleteDoses(at offsets: IndexSet) {
+        let current = filteredDoses
+        let targets: [DoseLog] = offsets.compactMap { index -> DoseLog? in
+            guard current.indices.contains(index) else { return nil }
+            return current[index]
+        }
+        for dose in targets {
+            viewModel.deleteDose(dose, context: context)
         }
     }
 }

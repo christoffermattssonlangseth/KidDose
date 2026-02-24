@@ -4,10 +4,16 @@ import Foundation
 
 enum CloudKitConfig {
     static let placeholderBundleID = "com.yourname.kiddose"
+    #if NO_CLOUDKIT
+    private static let cloudKitEnabledForBuild = false
+    #else
+    private static let cloudKitEnabledForBuild = true
+    #endif
 
     /// Uses iCloud.<bundle-id> when the app's bundle id has been configured.
     static var containerIdentifier: String? {
         guard
+            cloudKitEnabledForBuild,
             let bundleID = Bundle.main.bundleIdentifier?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
             !bundleID.isEmpty,
@@ -46,9 +52,12 @@ final class CloudKitService {
 
     @MainActor
     func checkiCloudStatus() async -> Bool {
+        guard let container else { return false }
         do {
-            let status = try await (container ?? CKContainer.default()).accountStatus()
-            return status == .available
+            let status = try await container.accountStatus()
+            guard status == .available else { return false }
+            _ = try await container.userRecordID()
+            return true
         } catch {
             return false
         }
@@ -147,6 +156,8 @@ final class FamilyCloudSyncService {
         static let familyCodeField = "familyCode"
         static let childNameField = "name"
         static let childColorField = "colorHex"
+        static let childIbuprofenDoseNoteField = "ibuprofenDoseNote"
+        static let childParacetamolDoseNoteField = "paracetamolDoseNote"
         static let childRecordNameField = "childRecordName"
         static let childFallbackNameField = "childName"
         static let childFallbackColorField = "childColorHex"
@@ -239,12 +250,26 @@ final class FamilyCloudSyncService {
                 let recordName = record.recordID.recordName
                 let name = (record[Constants.childNameField] as? String) ?? "Child"
                 let colorHex = (record[Constants.childColorField] as? String) ?? "#4ECDC4"
+                let ibuprofenDoseNote = normalizeNote(
+                    record[Constants.childIbuprofenDoseNoteField] as? String
+                )
+                let paracetamolDoseNote = normalizeNote(
+                    record[Constants.childParacetamolDoseNoteField] as? String
+                )
 
                 if let existing = childrenByRecordName[recordName] {
                     existing.name = name
                     existing.colorHex = colorHex
+                    existing.ibuprofenDoseNote = ibuprofenDoseNote
+                    existing.paracetamolDoseNote = paracetamolDoseNote
                 } else {
-                    let child = Child(name: name, colorHex: colorHex, cloudRecordName: recordName)
+                    let child = Child(
+                        name: name,
+                        colorHex: colorHex,
+                        ibuprofenDoseNote: ibuprofenDoseNote,
+                        paracetamolDoseNote: paracetamolDoseNote,
+                        cloudRecordName: recordName
+                    )
                     context.insert(child)
                     childrenByRecordName[recordName] = child
                 }
@@ -333,6 +358,10 @@ final class FamilyCloudSyncService {
         record[Constants.familyCodeField] = familyCode as CKRecordValue
         record[Constants.childNameField] = child.name as CKRecordValue
         record[Constants.childColorField] = child.colorHex as CKRecordValue
+        record[Constants.childIbuprofenDoseNoteField] =
+            (normalizeNote(child.ibuprofenDoseNote) ?? "") as CKRecordValue
+        record[Constants.childParacetamolDoseNoteField] =
+            (normalizeNote(child.paracetamolDoseNote) ?? "") as CKRecordValue
         record[Constants.updatedAtField] = Date() as CKRecordValue
 
         do {
@@ -405,6 +434,22 @@ final class FamilyCloudSyncService {
         }
     }
 
+    func deleteDoses(_ doseRecordNames: [String]) async {
+        guard let db = database else { return }
+        let idsToDelete = doseRecordNames.map { CKRecord.ID(recordName: $0) }
+        guard !idsToDelete.isEmpty else { return }
+
+        do {
+            _ = try await db.modifyRecords(
+                saving: [],
+                deleting: idsToDelete,
+                atomically: false
+            )
+        } catch {
+            print("[FamilyCloudSync] Dose delete failed: \(error)")
+        }
+    }
+
     private func fetchAllRecords(recordType: String, database: CKDatabase) async throws -> [CKRecord] {
         var records: [CKRecord] = []
         let query = CKQuery(recordType: recordType, predicate: NSPredicate(value: true))
@@ -435,6 +480,12 @@ final class FamilyCloudSyncService {
             .uppercased()
             .filter { $0.isLetter || $0.isNumber }
         return normalized.isEmpty ? nil : normalized
+    }
+
+    private func normalizeNote(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

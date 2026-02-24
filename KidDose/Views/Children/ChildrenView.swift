@@ -131,7 +131,7 @@ struct ChildrenView: View {
             }
 
             if !viewModel.iCloudAvailable {
-                Text("Sign in to iCloud to enable family sync.")
+                Text("Family sync needs iCloud + CloudKit capability. Personal Team signing disables this.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if !FamilyCloudSyncService.shared.isConfigured {
@@ -212,7 +212,7 @@ private struct FamilySetupSheet: View {
             Form {
                 if !viewModel.familySyncAvailable {
                     Section {
-                        Text("Sign in to iCloud and configure a real bundle identifier to enable family sync.")
+                        Text("Family sync requires iCloud + CloudKit capability. On a Personal Team, build works locally but family sync is unavailable.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

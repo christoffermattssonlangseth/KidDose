@@ -59,20 +59,34 @@ final class DoseViewModel {
 
     // MARK: - Dose Logic
 
+    /// The absolute next-allowed date based on the latest logged dose and its chosen interval.
+    func nextAllowedDate(for medication: Medication, child: Child) -> Date? {
+        guard let lastDose = child.lastDose(for: medication) else { return nil }
+        let interval = effectiveInterval(lastDose: lastDose, medication: medication)
+        return lastDose.timestamp.addingTimeInterval(interval * 3600)
+    }
+
     /// Whether a dose of `medication` can be given to `child` right now.
     func canGiveDose(for medication: Medication, child: Child) -> Bool {
-        guard let lastDose = child.lastDose(for: medication) else { return true }
-        let interval = effectiveInterval(lastDose: lastDose, medication: medication)
-        let nextAllowed = lastDose.timestamp.addingTimeInterval(interval * 3600)
+        guard let nextAllowed = nextAllowedDate(for: medication, child: child) else { return true }
         return Date.now >= nextAllowed
     }
 
     /// The date at which the next dose is allowed, or nil if allowed now.
     func nextDoseDate(for medication: Medication, child: Child) -> Date? {
-        guard let lastDose = child.lastDose(for: medication) else { return nil }
-        let interval = effectiveInterval(lastDose: lastDose, medication: medication)
-        let nextAllowed = lastDose.timestamp.addingTimeInterval(interval * 3600)
+        guard let nextAllowed = nextAllowedDate(for: medication, child: child) else { return nil }
         return Date.now < nextAllowed ? nextAllowed : nil
+    }
+
+    /// How long the dose has been overdue (if overdue), otherwise nil.
+    func overdueDuration(
+        for medication: Medication,
+        child: Child,
+        relativeTo date: Date = .now
+    ) -> TimeInterval? {
+        guard let nextAllowed = nextAllowedDate(for: medication, child: child) else { return nil }
+        let overdue = date.timeIntervalSince(nextAllowed)
+        return overdue > 0 ? overdue : nil
     }
 
     /// All future dose windows across the given children, sorted soonest first.
@@ -95,13 +109,17 @@ final class DoseViewModel {
     func logDose(
         medication: Medication,
         intervalHours: Double,
+        timestamp: Date = .now,
         for child: Child,
         context: ModelContext
     ) {
+        let previousLatestDose = child.lastDose(for: medication)
+
         let givenBy = UIDevice.current.name
         let log = DoseLog(
             medication: medication,
             intervalHours: intervalHours,
+            timestamp: timestamp,
             givenBy: givenBy,
             child: child
         )
@@ -112,7 +130,57 @@ final class DoseViewModel {
             await FamilyCloudSyncService.shared.upsertDose(log, context: context)
         }
 
-        scheduleNotification(for: child, medication: medication, intervalHours: intervalHours)
+        let shouldUpdateNotification: Bool
+        if let previousLatestDose {
+            shouldUpdateNotification = timestamp >= previousLatestDose.timestamp
+        } else {
+            shouldUpdateNotification = true
+        }
+
+        if shouldUpdateNotification {
+            scheduleNotification(
+                for: child,
+                medication: medication,
+                intervalHours: intervalHours,
+                from: timestamp
+            )
+        }
+    }
+
+    @MainActor
+    func logRetroactiveDose(
+        medication: Medication,
+        intervalHours: Double,
+        timestamp: Date,
+        setAsLatest: Bool,
+        for child: Child,
+        context: ModelContext
+    ) {
+        if setAsLatest {
+            let newerDoses = child.doses.filter {
+                $0.medication == medication.rawValue && $0.timestamp > timestamp
+            }
+            let recordNames = newerDoses.compactMap(\.cloudRecordName)
+
+            for dose in newerDoses {
+                context.delete(dose)
+            }
+            try? context.save()
+
+            if !recordNames.isEmpty {
+                Task {
+                    await FamilyCloudSyncService.shared.deleteDoses(recordNames)
+                }
+            }
+        }
+
+        logDose(
+            medication: medication,
+            intervalHours: intervalHours,
+            timestamp: timestamp,
+            for: child,
+            context: context
+        )
     }
 
     @MainActor
@@ -131,13 +199,88 @@ final class DoseViewModel {
         try? context.save()
     }
 
+    @MainActor
+    func deleteDose(_ dose: DoseLog, context: ModelContext) {
+        guard
+            let child = dose.child,
+            let medication = dose.medicationEnum
+        else {
+            if let recordName = dose.cloudRecordName {
+                Task {
+                    await FamilyCloudSyncService.shared.deleteDoses([recordName])
+                }
+            }
+            context.delete(dose)
+            try? context.save()
+            return
+        }
+
+        let wasLatest = child.lastDose(for: medication)?.persistentModelID == dose.persistentModelID
+        let recordName = dose.cloudRecordName
+
+        context.delete(dose)
+        try? context.save()
+
+        if let recordName {
+            Task {
+                await FamilyCloudSyncService.shared.deleteDoses([recordName])
+            }
+        }
+
+        guard wasLatest else { return }
+
+        if let newLatestDose = child.lastDose(for: medication) {
+            let interval = effectiveInterval(lastDose: newLatestDose, medication: medication)
+            scheduleNotification(
+                for: child,
+                medication: medication,
+                intervalHours: interval,
+                from: newLatestDose.timestamp
+            )
+        } else {
+            NotificationManager.shared.cancelDoseNotification(
+                childName: child.name,
+                medication: medication
+            )
+        }
+    }
+
+    @MainActor
+    func setLatestDoseInterval(
+        for medication: Medication,
+        intervalHours: Double,
+        child: Child,
+        context: ModelContext
+    ) {
+        guard let latestDose = child.lastDose(for: medication) else { return }
+        latestDose.usedIntervalHours = intervalHours
+        try? context.save()
+
+        Task {
+            await FamilyCloudSyncService.shared.upsertDose(latestDose, context: context)
+        }
+
+        scheduleNotification(
+            for: child,
+            medication: medication,
+            intervalHours: intervalHours,
+            from: latestDose.timestamp
+        )
+    }
+
     // MARK: - Notifications
 
-    func scheduleNotification(for child: Child, medication: Medication, intervalHours: Double) {
-        let nextAllowed = Date.now.addingTimeInterval(intervalHours * 3600)
+    func scheduleNotification(
+        for child: Child,
+        medication: Medication,
+        intervalHours: Double,
+        from timestamp: Date = .now
+    ) {
+        let nextAllowed = timestamp.addingTimeInterval(intervalHours * 3600)
         NotificationManager.shared.scheduleDoseReady(
             childName: child.name,
             medication: medication,
+            intervalHours: intervalHours,
             nextAllowedAt: nextAllowed
         )
     }
@@ -159,6 +302,7 @@ final class DoseViewModel {
     // MARK: - CloudKit Subscription
 
     func setupCloudKitSubscription() {
+        guard iCloudAvailable else { return }
         Task {
             await CloudKitService.shared.setupSubscriptionIfNeeded()
         }

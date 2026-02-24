@@ -42,6 +42,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     func scheduleDoseReady(
         childName: String,
         medication: Medication,
+        intervalHours: Double,
         nextAllowedAt: Date
     ) {
         let identifier = notificationID(childName: childName, medication: medication)
@@ -51,7 +52,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
         let content = UNMutableNotificationContent()
         content.title = "\(medication.displayName) ready for \(childName)"
-        content.body = "It's been \(Int(medication.intervalHours)) hours — you can give the next dose."
+        content.body = "It's been \(Int(intervalHours)) hours — you can give the next dose."
         content.sound = criticalAlertsGranted
             ? UNNotificationSound.defaultCriticalSound(withAudioVolume: 1.0)
             : .default

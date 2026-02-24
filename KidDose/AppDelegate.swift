@@ -11,8 +11,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        // Register for remote notifications (required for silent CloudKit pushes).
-        application.registerForRemoteNotifications()
+        // Register only when CloudKit/push is actually available for this build/account.
+        Task {
+            let cloudAvailable = await CloudKitService.shared.checkiCloudStatus()
+            guard cloudAvailable else { return }
+            await MainActor.run {
+                application.registerForRemoteNotifications()
+            }
+        }
         return true
     }
 

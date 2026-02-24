@@ -9,7 +9,6 @@ A SwiftUI iOS app for tracking ibuprofen and paracetamol doses for multiple chil
 - Family code pairing for multi-parent sync across different Apple IDs
 - Critical Alert notifications that bypass Silent Mode / Do Not Disturb
 - Cross-device notifications: "Partner gave Paracetamol to Emma at 3:14 AM"
-- CloudKit sharing via `UICloudSharingController` (iMessage, email, or link)
 - Live countdown timers to next allowed dose
 - Full history with per-child/per-medication filters and stats
 - Swipe-to-delete children (cascade deletes all dose history)
@@ -20,6 +19,15 @@ A SwiftUI iOS app for tracking ibuprofen and paracetamol doses for multiple chil
 ## Manual Xcode Setup (Required)
 
 These steps cannot be automated and must be performed manually in Xcode.
+
+### Personal Team Device Install (Free Apple ID)
+
+If you are using a Personal Team (free Apple ID), this repo is now configured so:
+
+- `Debug` uses `KidDose/Resources/KidDose.debug.entitlements` (no iCloud/push), so it can install on iPhone.
+- `Release` uses `KidDose/Resources/KidDose.entitlements` (iCloud + push), for paid Apple Developer accounts.
+
+This means local dose tracking works on device, but family CloudKit sync is disabled on Personal Team builds.
 
 ### 1. Bundle Identifier
 
@@ -58,6 +66,8 @@ In **Target → Signing & Capabilities**, click **+ Capability** and add:
 | **Push Notifications** | Add (required for CloudKit silent pushes) |
 | **Background Modes** | Check **Remote notifications** and **Background fetch** |
 
+Important: Personal Team accounts cannot enable iCloud/Push capabilities.
+
 ### 4. Critical Alerts Entitlement
 
 Critical Alerts require explicit approval from Apple.
@@ -74,11 +84,10 @@ Critical Alerts require explicit approval from Apple.
 
 ### 5. Entitlements File
 
-In **Target → Build Settings → Code Signing Entitlements**, set:
+In **Target → Build Settings → Code Signing Entitlements**, use:
 
-```
-KidDose/Resources/KidDose.entitlements
-```
+- `Debug`: `KidDose/Resources/KidDose.debug.entitlements`
+- `Release`: `KidDose/Resources/KidDose.entitlements`
 
 ### 6. CloudKit Schema Initialization
 
@@ -156,7 +165,7 @@ Dose interval elapses (locally, any device)
 
 - iOS 17+
 - Xcode 15+
-- Active Apple Developer account (required for CloudKit and Critical Alerts)
+- Paid Apple Developer account (required for CloudKit sync, Push Notifications, and Critical Alerts)
 - iCloud account signed in on device
 
 ---
