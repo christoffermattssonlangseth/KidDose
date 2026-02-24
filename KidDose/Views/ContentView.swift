@@ -3,17 +3,20 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         TabView {
-            Tab("Home", systemImage: "house.fill") {
-                HomeView()
-            }
+            HomeView()
+                .tabItem {
+                    Label("Home", systemImage: "house.fill")
+                }
 
-            Tab("History", systemImage: "clock.fill") {
-                HistoryView()
-            }
+            HistoryView()
+                .tabItem {
+                    Label("History", systemImage: "clock.fill")
+                }
 
-            Tab("Children", systemImage: "person.2.fill") {
-                ChildrenView()
-            }
+            ChildrenView()
+                .tabItem {
+                    Label("Children", systemImage: "person.2.fill")
+                }
         }
     }
 }
