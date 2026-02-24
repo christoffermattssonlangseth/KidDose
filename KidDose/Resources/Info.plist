@@ -18,6 +18,9 @@
     <string>KidDose uses Critical Alerts to wake you even when your phone is on silent or Do Not Disturb. This ensures you never miss a dose window during the night when your child is sick.</string>
 
     <!-- ───── Standard system keys ───── -->
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+
     <key>CFBundleName</key>
     <string>KidDose</string>
 
