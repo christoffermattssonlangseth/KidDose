@@ -14,16 +14,47 @@ struct ScheduledDose: Identifiable {
 // MARK: - DoseViewModel
 
 /// Central view model for KidDose, observable by all views.
+@MainActor
 @Observable
 final class DoseViewModel {
 
     // MARK: - iCloud Status
 
     var iCloudAvailable: Bool = true
+    var familyCode: String? { FamilyCloudSyncService.shared.familyCode }
+    var familySyncAvailable: Bool { iCloudAvailable && FamilyCloudSyncService.shared.isConfigured }
+    var familySyncEnabled: Bool { familyCode != nil }
 
     @MainActor
     func refreshiCloudStatus() async {
         iCloudAvailable = await CloudKitService.shared.checkiCloudStatus()
+    }
+
+    @MainActor
+    func createFamilyCode(context: ModelContext) async -> String? {
+        guard familySyncAvailable else { return nil }
+        let code = FamilyCloudSyncService.shared.createFamilyCode()
+        await FamilyCloudSyncService.shared.uploadLocalData(context: context)
+        await FamilyCloudSyncService.shared.sync(context: context)
+        return code
+    }
+
+    @MainActor
+    func joinFamily(code: String, context: ModelContext) async -> Bool {
+        guard familySyncAvailable else { return false }
+        FamilyCloudSyncService.shared.familyCode = code
+        await FamilyCloudSyncService.shared.sync(context: context)
+        return FamilyCloudSyncService.shared.familyCode != nil
+    }
+
+    @MainActor
+    func clearFamilyCode() {
+        FamilyCloudSyncService.shared.familyCode = nil
+    }
+
+    @MainActor
+    func syncFamilyCloud(context: ModelContext) async {
+        await FamilyCloudSyncService.shared.sync(context: context)
     }
 
     // MARK: - Dose Logic
@@ -77,7 +108,27 @@ final class DoseViewModel {
         context.insert(log)
         try? context.save()
 
+        Task {
+            await FamilyCloudSyncService.shared.upsertDose(log, context: context)
+        }
+
         scheduleNotification(for: child, medication: medication, intervalHours: intervalHours)
+    }
+
+    @MainActor
+    func syncChildToFamilyCloud(_ child: Child, context: ModelContext) async {
+        await FamilyCloudSyncService.shared.upsertChild(child, context: context)
+    }
+
+    @MainActor
+    func deleteChild(_ child: Child, context: ModelContext) {
+        let doseRecordNames = child.doses.compactMap(\.cloudRecordName)
+        Task {
+            await FamilyCloudSyncService.shared.deleteChild(child, doseRecordNames: doseRecordNames)
+        }
+
+        context.delete(child)
+        try? context.save()
     }
 
     // MARK: - Notifications

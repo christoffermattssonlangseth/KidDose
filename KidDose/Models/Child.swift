@@ -5,13 +5,15 @@ import Foundation
 final class Child {
     var name: String
     var colorHex: String
+    var cloudRecordName: String?
 
     @Relationship(deleteRule: .cascade, inverse: \DoseLog.child)
     var doses: [DoseLog] = []
 
-    init(name: String, colorHex: String) {
+    init(name: String, colorHex: String, cloudRecordName: String? = nil) {
         self.name = name
         self.colorHex = colorHex
+        self.cloudRecordName = cloudRecordName
     }
 
     /// Convenience: last dose for a given medication, sorted by timestamp descending.

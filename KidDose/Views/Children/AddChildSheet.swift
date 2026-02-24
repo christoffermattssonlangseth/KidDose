@@ -3,6 +3,7 @@ import SwiftData
 
 struct AddChildSheet: View {
     @Environment(\.modelContext) private var context
+    @Environment(DoseViewModel.self) private var viewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
@@ -48,6 +49,9 @@ struct AddChildSheet: View {
                         let child = Child(name: trimmed, colorHex: selectedColor.hexString)
                         context.insert(child)
                         try? context.save()
+                        Task {
+                            await viewModel.syncChildToFamilyCloud(child, context: context)
+                        }
                         dismiss()
                     }
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

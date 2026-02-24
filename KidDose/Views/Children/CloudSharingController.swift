@@ -25,9 +25,13 @@ struct CloudSharingView: UIViewControllerRepresentable {
             let controller = UICloudSharingController { _, handler in
                 Task {
                     do {
-                        let shareRecord = CKShare(rootRecord: CKRecord(recordType: "KidDoseRoot"))
+                        let rootRecord = CKRecord(recordType: "KidDoseRoot")
+                        let shareRecord = CKShare(rootRecord: rootRecord)
                         shareRecord[CKShare.SystemFieldKey.title] = "KidDose Family" as CKRecordValue
-                        try await container.privateCloudDatabase.save(shareRecord)
+                        _ = try await container.privateCloudDatabase.modifyRecords(
+                            saving: [rootRecord, shareRecord],
+                            deleting: []
+                        )
                         handler(shareRecord, container, nil)
                     } catch {
                         handler(nil, container, error)

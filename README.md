@@ -6,6 +6,7 @@ A SwiftUI iOS app for tracking ibuprofen and paracetamol doses for multiple chil
 
 - Track ibuprofen (8h interval) and paracetamol (6h interval) for multiple children
 - Real-time CloudKit sync — both parents see dose logs instantly
+- Family code pairing for multi-parent sync across different Apple IDs
 - Critical Alert notifications that bypass Silent Mode / Do Not Disturb
 - Cross-device notifications: "Partner gave Paracetamol to Emma at 3:14 AM"
 - CloudKit sharing via `UICloudSharingController` (iMessage, email, or link)
@@ -32,13 +33,20 @@ Replace `yourname` with your own identifier.
 
 ### 2. CloudKit Container Identifier
 
-In every file that references `iCloud.com.yourname.kiddose`, replace with your actual container ID:
+The app now derives the CloudKit container from your bundle identifier:
 
-- `KidDoseApp.swift` — `ModelConfiguration(cloudKitDatabase: .private(...))`
-- `CloudKitService.swift` — `CKContainer(identifier: ...)`
-- `ChildrenView.swift` — `CKContainer(identifier: ...)`
-- `KidDose.entitlements` — `com.apple.developer.icloud-container-identifiers`
-- `Info.plist` — `CFBundleIdentifier`
+```
+iCloud.<your bundle identifier>
+```
+
+Example:
+
+```
+Bundle ID: com.acme.kiddose
+CloudKit Container: iCloud.com.acme.kiddose
+```
+
+No source-code replacements are needed once your bundle identifier is set.
 
 ### 3. Capabilities — iCloud + CloudKit
 
@@ -46,7 +54,7 @@ In **Target → Signing & Capabilities**, click **+ Capability** and add:
 
 | Capability | Settings |
 |---|---|
-| **iCloud** | Check **CloudKit**; select/create container `iCloud.com.yourname.kiddose` |
+| **iCloud** | Check **CloudKit**; select/create container `iCloud.<your bundle identifier>` |
 | **Push Notifications** | Add (required for CloudKit silent pushes) |
 | **Background Modes** | Check **Remote notifications** and **Background fetch** |
 
@@ -155,4 +163,4 @@ Dose interval elapses (locally, any device)
 
 ## Replacing the Placeholder Bundle ID
 
-Search the project for `com.yourname.kiddose` and replace all occurrences with your actual reverse-DNS identifier before building.
+Set `PRODUCT_BUNDLE_IDENTIFIER` in Xcode (Target → General → Identity). The app and entitlements now use that value automatically.

@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import CloudKit
 
 struct ChildrenView: View {
     @Environment(\.modelContext) private var context
@@ -10,11 +9,11 @@ struct ChildrenView: View {
     @State private var showAddChild = false
     @State private var showDeleteConfirm = false
     @State private var childToDelete: Child?
-    @State private var showSharing = false
-    @State private var activeShare: CKShare? = nil
-    @State private var shareParticipantCount: Int = 0
+    @State private var showFamilySetup = false
 
-    private let ckContainer = CKContainer(identifier: "iCloud.com.yourname.kiddose")
+    private var canUseFamilySync: Bool {
+        viewModel.familySyncAvailable
+    }
 
     var body: some View {
         NavigationStack {
@@ -53,16 +52,8 @@ struct ChildrenView: View {
             .sheet(isPresented: $showAddChild) {
                 AddChildSheet()
             }
-            .sheet(isPresented: $showSharing) {
-                CloudSharingView(
-                    container: ckContainer,
-                    share: activeShare,
-                    onDismiss: {
-                        showSharing = false
-                        Task { await fetchShareStatus() }
-                    }
-                )
-                .ignoresSafeArea()
+            .sheet(isPresented: $showFamilySetup) {
+                FamilySetupSheet()
             }
             .confirmationDialog(
                 "Delete \(childToDelete?.name ?? "child")?",
@@ -71,49 +62,82 @@ struct ChildrenView: View {
             ) {
                 Button("Delete", role: .destructive) {
                     if let child = childToDelete {
-                        context.delete(child)
-                        try? context.save()
+                        viewModel.deleteChild(child, context: context)
                     }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("All dose history for this child will also be deleted.")
             }
-            .task { await fetchShareStatus() }
+            .task {
+                await viewModel.syncFamilyCloud(context: context)
+            }
         }
     }
 
-    // MARK: - Sharing Button
+    // MARK: - Family Sync Panel
 
     @ViewBuilder
     private var sharingButton: some View {
         VStack(spacing: 8) {
-            if shareParticipantCount > 0 {
-                Label(
-                    "Shared with \(shareParticipantCount) person\(shareParticipantCount == 1 ? "" : "s")",
-                    systemImage: "checkmark.circle.fill"
-                )
-                .font(.footnote)
-                .foregroundStyle(.green)
+            if let familyCode = viewModel.familyCode {
+                HStack {
+                    Text("Family code")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(familyCode)
+                        .font(.caption.monospacedDigit().bold())
+                }
+
+                ShareLink(
+                    item: "Join our KidDose family using code: \(familyCode)",
+                    preview: SharePreview("KidDose Family Code")
+                ) {
+                    Label("Share Code", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .font(.headline)
+                }
+                .buttonStyle(.bordered)
             }
 
             Button {
-                if viewModel.iCloudAvailable {
-                    showSharing = true
-                }
+                showFamilySetup = true
             } label: {
-                Label("Share with Partner", systemImage: "person.badge.plus")
+                Label(
+                    viewModel.familySyncEnabled ? "Manage Family Sync" : "Set Up Family Sync",
+                    systemImage: "person.2.badge.gearshape"
+                )
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .font(.headline)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(!viewModel.iCloudAvailable)
+            .disabled(!canUseFamilySync)
+
+            if viewModel.familySyncEnabled {
+                Button {
+                    Task {
+                        await viewModel.syncFamilyCloud(context: context)
+                    }
+                } label: {
+                    Label("Sync Now", systemImage: "arrow.clockwise")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!canUseFamilySync)
+            }
 
             if !viewModel.iCloudAvailable {
-                Text("Sign in to iCloud to enable sharing.")
+                Text("Sign in to iCloud to enable family sync.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } else if !FamilyCloudSyncService.shared.isConfigured {
+                Text("Set a real bundle identifier to enable family sync.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
         }
     }
@@ -124,20 +148,6 @@ struct ChildrenView: View {
         if let index = offsets.first {
             childToDelete = children[index]
             showDeleteConfirm = true
-        }
-    }
-
-    // MARK: - Share Status
-
-    private func fetchShareStatus() async {
-        do {
-            let shares = try await ckContainer.privateCloudDatabase.allSubscriptions()
-            // For a real app, fetch actual CKShare records. Here we just check subscriptions
-            // as a proxy for whether sharing has been set up.
-            // In production, use CKFetchShareParticipantsOperation.
-            _ = shares
-        } catch {
-            // Silently ignore — sharing status is non-critical UI.
         }
     }
 }
@@ -186,5 +196,77 @@ private struct ChildRowView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+private struct FamilySetupSheet: View {
+    @Environment(\.modelContext) private var context
+    @Environment(DoseViewModel.self) private var viewModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var joinCode: String = ""
+    @State private var isWorking = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if !viewModel.familySyncAvailable {
+                    Section {
+                        Text("Sign in to iCloud and configure a real bundle identifier to enable family sync.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("Create a new family") {
+                    Button("Create Family Code") {
+                        isWorking = true
+                        Task {
+                            _ = await viewModel.createFamilyCode(context: context)
+                            isWorking = false
+                        }
+                    }
+                    .disabled(!viewModel.familySyncAvailable || isWorking)
+
+                    if let code = viewModel.familyCode {
+                        LabeledContent("Current code", value: code)
+                            .font(.caption.monospacedDigit())
+                    }
+                }
+
+                Section("Join with a code") {
+                    TextField("Enter code", text: $joinCode)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                    Button("Join Family") {
+                        isWorking = true
+                        Task {
+                            _ = await viewModel.joinFamily(code: joinCode, context: context)
+                            isWorking = false
+                        }
+                    }
+                    .disabled(
+                        joinCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || isWorking
+                            || !viewModel.familySyncAvailable
+                    )
+                }
+
+                if viewModel.familySyncEnabled {
+                    Section {
+                        Button("Stop Family Sync", role: .destructive) {
+                            viewModel.clearFamilyCode()
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Family Sync")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }

@@ -28,7 +28,7 @@
     <string>KidDose</string>
 
     <key>CFBundleIdentifier</key>
-    <string>com.yourname.kiddose</string>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 
     <key>CFBundleVersion</key>
     <string>1</string>

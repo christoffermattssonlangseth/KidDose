@@ -10,15 +10,15 @@
     </array>
     <key>com.apple.developer.icloud-container-identifiers</key>
     <array>
-        <string>iCloud.com.yourname.kiddose</string>
+        <string>iCloud.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
     </array>
     <key>com.apple.developer.ubiquity-kvstore-identifier</key>
-    <string>$(TeamIdentifierPrefix)com.yourname.kiddose</string>
+    <string>$(TeamIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 
     <!-- CloudKit Sharing -->
     <key>com.apple.developer.icloud-container-development-container-identifiers</key>
     <array>
-        <string>iCloud.com.yourname.kiddose</string>
+        <string>iCloud.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
     </array>
 
     <!-- Push Notifications (for CloudKit silent pushes) -->
