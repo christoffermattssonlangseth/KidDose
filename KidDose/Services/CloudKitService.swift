@@ -245,22 +245,17 @@ final class FamilyCloudSyncService {
         lastSyncErrorMessage = nil
 
         do {
-            let childRecords = try await fetchAllRecords(
+            let filteredChildren = try await fetchFamilyRecords(
                 recordType: Constants.childRecordType,
+                familyCode: familyCode,
                 database: db
             )
-            let doseRecords = try await fetchAllRecords(
+            let filteredDoses = try await fetchFamilyRecords(
                 recordType: Constants.doseRecordType,
+                familyCode: familyCode,
                 database: db
             )
-
-            let filteredChildren = childRecords.filter { record in
-                normalizeCode(record[Constants.familyCodeField] as? String) == familyCode
-            }
-            let filteredDoses = doseRecords.filter { record in
-                normalizeCode(record[Constants.familyCodeField] as? String) == familyCode
-            }
-            setStatus("Fetched \(filteredChildren.count) children and \(filteredDoses.count) doses.")
+            setStatus("Fetched \(filteredChildren.count) children and \(filteredDoses.count) doses for family \(familyCode).")
 
             let localChildren = (try? context.fetch(FetchDescriptor<Child>())) ?? []
             var childrenByRecordName: [String: Child] = [:]
@@ -482,9 +477,16 @@ final class FamilyCloudSyncService {
         }
     }
 
-    private func fetchAllRecords(recordType: String, database: CKDatabase) async throws -> [CKRecord] {
+    private func fetchFamilyRecords(
+        recordType: String,
+        familyCode: String,
+        database: CKDatabase
+    ) async throws -> [CKRecord] {
         var records: [CKRecord] = []
-        let query = CKQuery(recordType: recordType, predicate: NSPredicate(value: true))
+        let query = CKQuery(
+            recordType: recordType,
+            predicate: NSPredicate(format: "%K == %@", Constants.familyCodeField, familyCode)
+        )
         var page = try await database.records(
             matching: query,
             resultsLimit: Constants.maxQueryPageSize
@@ -527,7 +529,10 @@ final class FamilyCloudSyncService {
 
     private func setError(_ prefix: String, error: Error) {
         let detail = describe(error)
-        let message = "\(prefix): \(detail)"
+        var message = "\(prefix): \(detail)"
+        if detail.localizedCaseInsensitiveContains("not marked queryable") {
+            message += " | CloudKit schema issue: mark 'familyCode' as Queryable for KidDoseChild/KidDoseDose in CloudKit Console (Development), then deploy schema."
+        }
         lastSyncErrorMessage = message
         print("[FamilyCloudSync] \(message)")
     }
