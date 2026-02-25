@@ -8,6 +8,10 @@ final class Child {
     var cloudRecordName: String?
     var ibuprofenDoseNote: String?
     var paracetamolDoseNote: String?
+    var ibuprofenSessionEndedAt: Date?
+    var paracetamolSessionEndedAt: Date?
+    var ibuprofenCycleStartAt: Date?
+    var paracetamolCycleStartAt: Date?
 
     @Relationship(deleteRule: .cascade, inverse: \DoseLog.child)
     var doses: [DoseLog] = []
@@ -17,12 +21,20 @@ final class Child {
         colorHex: String,
         ibuprofenDoseNote: String? = nil,
         paracetamolDoseNote: String? = nil,
+        ibuprofenSessionEndedAt: Date? = nil,
+        paracetamolSessionEndedAt: Date? = nil,
+        ibuprofenCycleStartAt: Date? = nil,
+        paracetamolCycleStartAt: Date? = nil,
         cloudRecordName: String? = nil
     ) {
         self.name = name
         self.colorHex = colorHex
         self.ibuprofenDoseNote = ibuprofenDoseNote
         self.paracetamolDoseNote = paracetamolDoseNote
+        self.ibuprofenSessionEndedAt = ibuprofenSessionEndedAt
+        self.paracetamolSessionEndedAt = paracetamolSessionEndedAt
+        self.ibuprofenCycleStartAt = ibuprofenCycleStartAt
+        self.paracetamolCycleStartAt = paracetamolCycleStartAt
         self.cloudRecordName = cloudRecordName
     }
 
@@ -54,6 +66,42 @@ final class Child {
             ibuprofenDoseNote = note
         case .paracetamol:
             paracetamolDoseNote = note
+        }
+    }
+
+    func sessionEndedAt(for medication: Medication) -> Date? {
+        switch medication {
+        case .ibuprofen:
+            return ibuprofenSessionEndedAt
+        case .paracetamol:
+            return paracetamolSessionEndedAt
+        }
+    }
+
+    func setSessionEndedAt(_ timestamp: Date?, for medication: Medication) {
+        switch medication {
+        case .ibuprofen:
+            ibuprofenSessionEndedAt = timestamp
+        case .paracetamol:
+            paracetamolSessionEndedAt = timestamp
+        }
+    }
+
+    func cycleStartAt(for medication: Medication) -> Date? {
+        switch medication {
+        case .ibuprofen:
+            return ibuprofenCycleStartAt
+        case .paracetamol:
+            return paracetamolCycleStartAt
+        }
+    }
+
+    func setCycleStartAt(_ timestamp: Date?, for medication: Medication) {
+        switch medication {
+        case .ibuprofen:
+            ibuprofenCycleStartAt = timestamp
+        case .paracetamol:
+            paracetamolCycleStartAt = timestamp
         }
     }
 }

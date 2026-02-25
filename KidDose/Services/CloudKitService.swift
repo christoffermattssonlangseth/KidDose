@@ -158,6 +158,10 @@ final class FamilyCloudSyncService {
         static let childColorField = "colorHex"
         static let childIbuprofenDoseNoteField = "ibuprofenDoseNote"
         static let childParacetamolDoseNoteField = "paracetamolDoseNote"
+        static let childIbuprofenSessionEndedAtField = "ibuprofenSessionEndedAt"
+        static let childParacetamolSessionEndedAtField = "paracetamolSessionEndedAt"
+        static let childIbuprofenCycleStartAtField = "ibuprofenCycleStartAt"
+        static let childParacetamolCycleStartAtField = "paracetamolCycleStartAt"
         static let childRecordNameField = "childRecordName"
         static let childFallbackNameField = "childName"
         static let childFallbackColorField = "childColorHex"
@@ -409,18 +413,30 @@ final class FamilyCloudSyncService {
                 let paracetamolDoseNote = normalizeNote(
                     record[Constants.childParacetamolDoseNoteField] as? String
                 )
+                let ibuprofenSessionEndedAt = record[Constants.childIbuprofenSessionEndedAtField] as? Date
+                let paracetamolSessionEndedAt = record[Constants.childParacetamolSessionEndedAtField] as? Date
+                let ibuprofenCycleStartAt = record[Constants.childIbuprofenCycleStartAtField] as? Date
+                let paracetamolCycleStartAt = record[Constants.childParacetamolCycleStartAtField] as? Date
 
                 if let existing = childrenByRecordName[recordName] {
                     existing.name = name
                     existing.colorHex = colorHex
                     existing.ibuprofenDoseNote = ibuprofenDoseNote
                     existing.paracetamolDoseNote = paracetamolDoseNote
+                    existing.ibuprofenSessionEndedAt = ibuprofenSessionEndedAt
+                    existing.paracetamolSessionEndedAt = paracetamolSessionEndedAt
+                    existing.ibuprofenCycleStartAt = ibuprofenCycleStartAt
+                    existing.paracetamolCycleStartAt = paracetamolCycleStartAt
                 } else {
                     let child = Child(
                         name: name,
                         colorHex: colorHex,
                         ibuprofenDoseNote: ibuprofenDoseNote,
                         paracetamolDoseNote: paracetamolDoseNote,
+                        ibuprofenSessionEndedAt: ibuprofenSessionEndedAt,
+                        paracetamolSessionEndedAt: paracetamolSessionEndedAt,
+                        ibuprofenCycleStartAt: ibuprofenCycleStartAt,
+                        paracetamolCycleStartAt: paracetamolCycleStartAt,
                         cloudRecordName: recordName
                     )
                     context.insert(child)
@@ -535,6 +551,10 @@ final class FamilyCloudSyncService {
             (normalizeNote(child.ibuprofenDoseNote) ?? "") as CKRecordValue
         record[Constants.childParacetamolDoseNoteField] =
             (normalizeNote(child.paracetamolDoseNote) ?? "") as CKRecordValue
+        record[Constants.childIbuprofenSessionEndedAtField] = child.ibuprofenSessionEndedAt as CKRecordValue?
+        record[Constants.childParacetamolSessionEndedAtField] = child.paracetamolSessionEndedAt as CKRecordValue?
+        record[Constants.childIbuprofenCycleStartAtField] = child.ibuprofenCycleStartAt as CKRecordValue?
+        record[Constants.childParacetamolCycleStartAtField] = child.paracetamolCycleStartAt as CKRecordValue?
         record[Constants.updatedAtField] = Date() as CKRecordValue
 
         do {

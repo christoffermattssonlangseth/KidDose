@@ -29,8 +29,10 @@ struct MedicationCard: View {
     var nextDate: Date? { viewModel.nextDoseDate(for: medication, child: child) }
     var nextAllowedDate: Date? { viewModel.nextAllowedDate(for: medication, child: child) }
     var isOverdue: Bool { viewModel.overdueDuration(for: medication, child: child) != nil }
-    var lastDose: DoseLog? { child.lastDose(for: medication) }
+    var lastDose: DoseLog? { viewModel.latestDoseInCurrentCycle(for: medication, child: child) }
     var doseNote: String? { child.doseNote(for: medication) }
+    var sessionEndedAt: Date? { viewModel.sessionEndedAt(for: medication, child: child) }
+    var isSessionEnded: Bool { viewModel.isMedicationSessionEnded(for: medication, child: child) }
     var currentIntervalMode: Double {
         if let lastDose, lastDose.usedIntervalHours > 0 {
             return lastDose.usedIntervalHours
@@ -52,7 +54,11 @@ struct MedicationCard: View {
                 Text(medication.displayName)
                     .font(.headline.weight(.semibold))
                 Spacer()
-                if isOverdue {
+                if isSessionEnded {
+                    Label("Cycle Ended", systemImage: "pause.circle.fill")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.orange)
+                } else if isOverdue {
                     Label("Overdue", systemImage: "exclamationmark.triangle.fill")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.red)
@@ -93,6 +99,16 @@ struct MedicationCard: View {
                 Text("No doses yet")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+
+            if let sessionEndedAt {
+                HStack(spacing: 6) {
+                    Image(systemName: "pause.circle")
+                        .foregroundStyle(.orange)
+                    Text("Cycle ended \(relativeTimestamp(for: sessionEndedAt, now: .now))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             // ── Live countdown ───────────────────────────────────────
@@ -188,6 +204,35 @@ struct MedicationCard: View {
                     .font(.subheadline.weight(.semibold))
             }
             .buttonStyle(.bordered)
+
+            if lastDose != nil {
+                Button {
+                    if isSessionEnded {
+                        viewModel.restartMedicationSession(
+                            for: medication,
+                            child: child,
+                            context: context
+                        )
+                    } else {
+                        viewModel.endMedicationSession(
+                            for: medication,
+                            child: child,
+                            context: context
+                        )
+                    }
+                } label: {
+                    Label(
+                        isSessionEnded ? "Restart Cycle" : "End Cycle",
+                        systemImage: isSessionEnded ? "play.circle" : "pause.circle"
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.bordered)
+                .tint(isSessionEnded ? medication.color : .orange)
+            }
+
         }
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))

@@ -4,18 +4,14 @@ import SwiftData
 /// Shows upcoming/overdue dose windows derived from latest logged doses.
 struct ScheduledAlarmsView: View {
     @Query(sort: \Child.name) private var children: [Child]
+    @Environment(DoseViewModel.self) private var viewModel
 
     private var alarms: [ScheduledAlarm] {
         var items: [ScheduledAlarm] = []
 
         for child in children {
             for medication in Medication.allCases {
-                guard let lastDose = child.lastDose(for: medication) else { continue }
-
-                let interval = lastDose.usedIntervalHours > 0
-                    ? lastDose.usedIntervalHours
-                    : medication.intervalHours
-                let fireDate = lastDose.timestamp.addingTimeInterval(interval * 3600)
+                guard let fireDate = viewModel.nextAllowedDate(for: medication, child: child) else { continue }
                 items.append(
                     ScheduledAlarm(
                         childName: child.name,

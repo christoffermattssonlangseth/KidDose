@@ -3,11 +3,13 @@ import SwiftData
 
 struct HomeView: View {
     @Environment(DoseViewModel.self) private var viewModel
+    @Environment(\.modelContext) private var context
     @Query(sort: \Child.name) private var children: [Child]
 
     @State private var selectedChildID: PersistentIdentifier?
     @State private var showAlarms = false
     @State private var showFullSchedule = false
+    @State private var showStartNewCycleConfirm = false
 
     private var resolvedSelectedChildID: PersistentIdentifier? {
         if let selectedChildID { return selectedChildID }
@@ -75,6 +77,17 @@ struct HomeView: View {
                             }
                             .padding(.horizontal)
 
+                            Button {
+                                showStartNewCycleConfirm = true
+                            } label: {
+                                Label("Start New Infection Cycle", systemImage: "arrow.counterclockwise.circle")
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .buttonStyle(.bordered)
+                            .padding(.horizontal)
+
                             // ── Upcoming doses for this child ───────────
                             let upcoming = viewModel.upcomingDoses(for: [child])
                             if !upcoming.isEmpty {
@@ -108,6 +121,20 @@ struct HomeView: View {
                     FullScheduleView(child: child)
                         .presentationDetents([.large])
                 }
+            }
+            .confirmationDialog(
+                "Start new infection cycle?",
+                isPresented: $showStartNewCycleConfirm,
+                titleVisibility: .visible
+            ) {
+                if let child = selectedChild {
+                    Button("Start New Cycle") {
+                        viewModel.startNewInfectionCycle(for: child, context: context)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This resets Home timers and schedules for this child but keeps all history.")
             }
             .onAppear {
                 validateSelectedChild()
