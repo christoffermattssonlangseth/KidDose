@@ -54,10 +54,10 @@ private struct FullScheduleRow: View {
     let item: ScheduledDose
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Circle()
                 .fill(item.medication.color.opacity(0.16))
-                .frame(width: 34, height: 34)
+                .frame(width: 30, height: 30)
                 .overlay {
                     Image(systemName: item.medication.iconName)
                         .foregroundStyle(item.medication.color)
@@ -82,6 +82,6 @@ private struct FullScheduleRow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 3)
     }
 }

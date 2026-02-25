@@ -1,25 +1,53 @@
 import SwiftUI
-import UserNotifications
+import SwiftData
 
-/// Shows all pending local notifications that are currently scheduled.
+/// Shows upcoming/overdue dose windows derived from latest logged doses.
 struct ScheduledAlarmsView: View {
-    @State private var alarms: [PendingAlarm] = []
-    @State private var isLoading = true
+    @Query(sort: \Child.name) private var children: [Child]
+
+    private var alarms: [ScheduledAlarm] {
+        var items: [ScheduledAlarm] = []
+
+        for child in children {
+            for medication in Medication.allCases {
+                guard let lastDose = child.lastDose(for: medication) else { continue }
+
+                let interval = lastDose.usedIntervalHours > 0
+                    ? lastDose.usedIntervalHours
+                    : medication.intervalHours
+                let fireDate = lastDose.timestamp.addingTimeInterval(interval * 3600)
+                items.append(
+                    ScheduledAlarm(
+                        childName: child.name,
+                        medication: medication,
+                        fireDate: fireDate
+                    )
+                )
+            }
+        }
+
+        // Past due alarms first (most overdue), then upcoming soonest first.
+        return items.sorted { lhs, rhs in
+            if lhs.fireDate < .now, rhs.fireDate < .now {
+                return lhs.fireDate > rhs.fireDate
+            }
+            if lhs.fireDate < .now { return true }
+            if rhs.fireDate < .now { return false }
+            return lhs.fireDate < rhs.fireDate
+        }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if alarms.isEmpty {
+                if alarms.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "bell.slash")
                             .font(.system(size: 44))
                             .foregroundStyle(.secondary)
-                        Text("No alarms scheduled")
+                        Text("No alarms available")
                             .font(.headline)
-                        Text("Alarms are set automatically when you log a dose.")
+                        Text("Log a dose to see the next due time.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -35,52 +63,25 @@ struct ScheduledAlarmsView: View {
             }
             .navigationTitle("Scheduled Alarms")
             .navigationBarTitleDisplayMode(.inline)
-            .task { await loadAlarms() }
         }
-    }
-
-    private func loadAlarms() async {
-        let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
-
-        let parsed: [PendingAlarm] = requests.compactMap { request in
-            guard
-                let trigger = request.trigger as? UNTimeIntervalNotificationTrigger,
-                let fireDate = trigger.nextTriggerDate(),
-                let lastHyphen = request.identifier.lastIndex(of: "-")
-            else { return nil }
-
-            let medRaw = String(request.identifier[request.identifier.index(after: lastHyphen)...])
-            let childName = String(request.identifier[..<lastHyphen])
-
-            guard let medication = Medication(rawValue: medRaw) else { return nil }
-            return PendingAlarm(id: request.identifier, childName: childName, medication: medication, fireDate: fireDate)
-        }
-        .sorted { $0.fireDate < $1.fireDate }
-
-        alarms = parsed
-        isLoading = false
     }
 }
 
-// MARK: - Model
-
-struct PendingAlarm: Identifiable {
-    let id: String
+private struct ScheduledAlarm: Identifiable {
+    let id = UUID()
     let childName: String
     let medication: Medication
     let fireDate: Date
 }
 
-// MARK: - Row
-
 private struct AlarmRow: View {
-    let alarm: PendingAlarm
+    let alarm: ScheduledAlarm
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             Circle()
                 .fill(alarm.medication.color.opacity(0.15))
-                .frame(width: 42, height: 42)
+                .frame(width: 38, height: 38)
                 .overlay {
                     Image(systemName: alarm.medication.iconName)
                         .foregroundStyle(alarm.medication.color)
@@ -115,13 +116,18 @@ private struct AlarmRow: View {
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Label("Ready", systemImage: "checkmark.circle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.green)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Overdue")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.red)
+                        Text(roughCountdown(-remaining))
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.red)
+                    }
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 3)
     }
 
     private func formattedFireDate(_ date: Date) -> String {
@@ -138,8 +144,9 @@ private struct AlarmRow: View {
     }
 
     private func roughCountdown(_ interval: TimeInterval) -> String {
-        let h = Int(interval) / 3600
-        let m = (Int(interval) % 3600) / 60
+        let totalMinutes = max(0, Int(interval / 60))
+        let h = totalMinutes / 60
+        let m = totalMinutes % 60
         if h > 0 { return "\(h)h \(m)m" }
         return "\(m)m"
     }

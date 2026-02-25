@@ -20,9 +20,9 @@ struct HomeView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
+            NavigationStack {
+                ScrollView {
+                VStack(spacing: 10) {
 
                     // iCloud banner
                     if !viewModel.iCloudAvailable {
@@ -35,7 +35,7 @@ struct HomeView: View {
                         // ── Child selector ──────────────────────────────
                         if children.count >= 4 {
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
+                                HStack(spacing: 8) {
                                     ForEach(children) { child in
                                         ChildChip(
                                             child: child,
@@ -65,7 +65,7 @@ struct HomeView: View {
 
                         // ── Medication cards ────────────────────────────
                         if let child = selectedChild {
-                            VStack(spacing: 16) {
+                            VStack(spacing: 8) {
                                 ForEach(Medication.allCases, id: \.rawValue) { med in
                                     MedicationCard(medication: med, child: child)
                                         // Force re-creation (and State reset) when child changes
@@ -86,7 +86,7 @@ struct HomeView: View {
                         }
                     }
                 }
-                .padding(.vertical)
+                .padding(.vertical, 6)
             }
             .navigationTitle("KidDose")
             .navigationBarTitleDisplayMode(.large)
@@ -137,7 +137,7 @@ struct UpcomingSection: View {
     let onViewFullSchedule: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Label("Upcoming Doses", systemImage: "calendar.badge.clock")
                     .font(.headline)
@@ -153,7 +153,7 @@ struct UpcomingSection: View {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     UpcomingRow(item: item)
                     if index < items.count - 1 {
-                        Divider().padding(.leading, 52)
+                        Divider().padding(.leading, 46)
                     }
                 }
             }
@@ -169,11 +169,11 @@ private struct UpcomingRow: View {
     let item: ScheduledDose
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             // Medication icon
             Circle()
                 .fill(item.medication.color.opacity(0.15))
-                .frame(width: 38, height: 38)
+                .frame(width: 34, height: 34)
                 .overlay {
                     Image(systemName: item.medication.iconName)
                         .foregroundStyle(item.medication.color)
@@ -196,14 +196,14 @@ private struct UpcomingRow: View {
                     Text(roughCountdown(remaining))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(item.medication.color)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
                         .background(item.medication.color.opacity(0.12), in: Capsule())
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
     }
 
     /// "Today at 3:45 PM", "Tomorrow at 6:00 AM", "Wed at 9:15 AM"
@@ -250,8 +250,8 @@ private struct ChildChip: View {
                 Text(child.name)
                     .font(.subheadline.weight(isSelected ? .semibold : .regular))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
             .background(
                 isSelected
                     ? Color(hex: child.colorHex).opacity(0.2)
@@ -271,7 +271,7 @@ private struct ChildChip: View {
 
 private struct EmptyStateView: View {
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             Image(systemName: "person.2.fill")
                 .font(.system(size: 60))
                 .foregroundStyle(.secondary)
@@ -281,9 +281,9 @@ private struct EmptyStateView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+                .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 80)
+        .padding(.top, 64)
     }
 }

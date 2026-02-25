@@ -42,7 +42,7 @@ struct MedicationCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
 
             // ── Header ──────────────────────────────────────────────
             HStack {
@@ -74,8 +74,10 @@ struct MedicationCard: View {
                         Text("Last dose")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(last.relativeTimestamp)
-                            .font(.subheadline.weight(.medium))
+                        TimelineView(.periodic(from: .now, by: 60)) { context in
+                            Text(relativeTimestamp(for: last.timestamp, now: context.date))
+                                .font(.subheadline.weight(.medium))
+                        }
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
@@ -102,7 +104,7 @@ struct MedicationCard: View {
                 OverdueView(nextAllowedDate: nextAllowedDate)
             }
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Label("Dose note", systemImage: "note.text")
                         .font(.caption)
@@ -118,12 +120,12 @@ struct MedicationCard: View {
                     .font(.subheadline)
                     .foregroundStyle(doseNote == nil ? .secondary : .primary)
             }
-            .padding(12)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+            .padding(10)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
 
             // ── Interval picker (ibuprofen only) ─────────────────────
             if medication.availableIntervals.count > 1 {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Interval for next dose")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -169,7 +171,7 @@ struct MedicationCard: View {
             } label: {
                 Label("Give Dose", systemImage: "plus.circle.fill")
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 10)
                     .font(.headline)
             }
             .buttonStyle(.borderedProminent)
@@ -182,14 +184,14 @@ struct MedicationCard: View {
             } label: {
                 Label("Add Past Dose", systemImage: "clock.arrow.circlepath")
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 8)
                     .font(.subheadline.weight(.semibold))
             }
             .buttonStyle(.bordered)
         }
-        .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.07), radius: 8, y: 4)
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.07), radius: 6, y: 3)
         .sheet(isPresented: $showRetroactiveSheet) {
             RetroactiveDoseSheet(
                 medication: medication,
@@ -220,6 +222,18 @@ struct MedicationCard: View {
                 }
             }
         }
+    }
+
+    private func relativeTimestamp(for timestamp: Date, now: Date) -> String {
+        // Cloud/device clock drift can place synced records a few seconds in the future.
+        // Clamp to "just now" near zero so "time since last dose" stays intuitive.
+        let delta = now.timeIntervalSince(timestamp)
+        if abs(delta) < 30 {
+            return "just now"
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: timestamp, relativeTo: now)
     }
 }
 
@@ -294,7 +308,7 @@ private struct OverdueView: View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             let overdue = context.date.timeIntervalSince(nextAllowedDate)
             if overdue > 0 {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Image(systemName: "clock.badge.exclamationmark")
                         .foregroundStyle(.red)
                     Text("Overdue by \(formatted(overdue))")

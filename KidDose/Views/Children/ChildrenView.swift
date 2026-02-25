@@ -50,7 +50,7 @@ struct ChildrenView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 sharingButton
-                    .padding()
+                    .padding(12)
                     .background(.ultraThinMaterial)
             }
             .sheet(isPresented: $showAddChild) {
@@ -83,7 +83,7 @@ struct ChildrenView: View {
 
     @ViewBuilder
     private var sharingButton: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             if viewModel.familySyncEnabled {
                 HStack {
                     Text("Secure family sync")
@@ -109,7 +109,7 @@ struct ChildrenView: View {
                     ) {
                         Label("Invite Parent", systemImage: "person.badge.plus")
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 10)
                             .font(.headline)
                     }
                     .buttonStyle(.bordered)
@@ -124,7 +124,7 @@ struct ChildrenView: View {
                     systemImage: "person.2.badge.gearshape"
                 )
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 10)
                     .font(.headline)
             }
             .buttonStyle(.borderedProminent)
@@ -152,7 +152,7 @@ struct ChildrenView: View {
                         systemImage: "arrow.clockwise"
                     )
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 6)
                 }
                 .buttonStyle(.bordered)
                 .disabled(
@@ -220,10 +220,10 @@ private struct ChildRowView: View {
     var totalDoses: Int { child.doses.count }
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             Circle()
                 .fill(Color(hex: child.colorHex))
-                .frame(width: 36, height: 36)
+                .frame(width: 32, height: 32)
                 .overlay {
                     Text(child.name.prefix(1).uppercased())
                         .font(.headline.bold())
@@ -241,7 +241,7 @@ private struct ChildRowView: View {
             Spacer()
 
             // Per-medication mini summary
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 ForEach(Medication.allCases, id: \.rawValue) { med in
                     let count = child.doses.filter { $0.medication == med.rawValue }.count
                     VStack(spacing: 2) {
@@ -255,7 +255,7 @@ private struct ChildRowView: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 3)
     }
 }
 

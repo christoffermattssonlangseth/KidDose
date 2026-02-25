@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 // MARK: - History mode
 
@@ -18,6 +19,8 @@ struct HistoryView: View {
 
     @State private var mode: HistoryMode = .past
     @State private var selectedChildID: PersistentIdentifier? = nil   // nil = All
+    @State private var exportFile: ExportFile?
+    @State private var exportErrorMessage: String?
 
     // MARK: Computed
 
@@ -57,14 +60,14 @@ struct HistoryView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
-                .padding(.vertical, 10)
+                .padding(.vertical, 8)
                 .background(Color(.systemBackground))
 
                 Divider()
 
                 // ── Child filter chips ───────────────────────────────
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         FilterChip(
                             label: "All",
                             isSelected: selectedChildID == nil,
@@ -80,7 +83,7 @@ struct HistoryView: View {
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 6)
                 }
                 .background(Color(.systemBackground))
 
@@ -96,6 +99,32 @@ struct HistoryView: View {
             }
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        exportFullHistory()
+                    } label: {
+                        Label("Export", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(allDoses.isEmpty)
+                }
+            }
+            .sheet(item: $exportFile) { file in
+                ActivityShareSheet(activityItems: [file.url])
+            }
+            .alert(
+                "Export history",
+                isPresented: Binding(
+                    get: { exportErrorMessage != nil },
+                    set: { isPresented in
+                        if !isPresented { exportErrorMessage = nil }
+                    }
+                )
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(exportErrorMessage ?? "Could not export dose history.")
+            }
         }
     }
 
@@ -106,7 +135,7 @@ struct HistoryView: View {
         // Stats summary
         StatsRowView(stats: statsMap)
             .padding(.horizontal)
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
             .background(Color(.secondarySystemBackground))
 
         Divider()
@@ -133,7 +162,7 @@ struct HistoryView: View {
     private var upcomingContent: some View {
         if upcomingItems.isEmpty {
             Spacer()
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 44))
                     .foregroundStyle(.green)
@@ -164,6 +193,112 @@ struct HistoryView: View {
             viewModel.deleteDose(dose, context: context)
         }
     }
+
+    private func exportFullHistory() {
+        guard !allDoses.isEmpty else {
+            exportErrorMessage = "No dose history to export yet."
+            return
+        }
+
+        do {
+            let fileURL = try writeFullHistoryCSV()
+            exportFile = ExportFile(url: fileURL)
+        } catch {
+            exportErrorMessage = "Could not create CSV export: \(error.localizedDescription)"
+        }
+    }
+
+    private func writeFullHistoryCSV() throws -> URL {
+        let sortedDoses = allDoses.sorted { $0.timestamp < $1.timestamp }
+
+        let timestampFormatter = ISO8601DateFormatter()
+        timestampFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let localFormatter = DateFormatter()
+        localFormatter.locale = Locale(identifier: "en_US_POSIX")
+        localFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZ"
+
+        var rows: [String] = []
+        rows.append(
+            [
+                "child_name",
+                "medication",
+                "dose_timestamp_iso8601",
+                "dose_timestamp_local",
+                "given_by",
+                "interval_hours",
+                "dose_note"
+            ].joined(separator: ",")
+        )
+
+        for dose in sortedDoses {
+            let childName = dose.child?.name ?? "Unknown"
+            let medication = dose.medicationEnum?.displayName ?? dose.medication.capitalized
+            let isoTimestamp = timestampFormatter.string(from: dose.timestamp)
+            let localTimestamp = localFormatter.string(from: dose.timestamp)
+            let interval = dose.usedIntervalHours > 0
+                ? dose.usedIntervalHours
+                : (dose.medicationEnum?.intervalHours ?? 0)
+            let intervalString = formatIntervalHours(interval)
+            let note = dose.medicationEnum.flatMap { med in
+                dose.child?.doseNote(for: med)
+            } ?? ""
+
+            let row = [
+                csvEscape(childName),
+                csvEscape(medication),
+                csvEscape(isoTimestamp),
+                csvEscape(localTimestamp),
+                csvEscape(dose.givenBy),
+                csvEscape(intervalString),
+                csvEscape(note)
+            ].joined(separator: ",")
+            rows.append(row)
+        }
+
+        let csv = rows.joined(separator: "\n")
+        let fileName = "KidDose-History-\(exportTimestamp()).csv"
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        try csv.write(to: fileURL, atomically: true, encoding: .utf8)
+        return fileURL
+    }
+
+    private func exportTimestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return formatter.string(from: Date())
+    }
+
+    private func formatIntervalHours(_ value: Double) -> String {
+        if value == floor(value) {
+            return String(Int(value))
+        }
+        return String(value)
+    }
+
+    private func csvEscape(_ value: String) -> String {
+        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
+        if escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n") {
+            return "\"\(escaped)\""
+        }
+        return escaped
+    }
+}
+
+private struct ExportFile: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+private struct ActivityShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Upcoming History Row
@@ -172,11 +307,11 @@ private struct UpcomingHistoryRow: View {
     let item: ScheduledDose
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             // Medication badge
             Circle()
                 .fill(item.medication.color.opacity(0.15))
-                .frame(width: 42, height: 42)
+                .frame(width: 38, height: 38)
                 .overlay {
                     Image(systemName: item.medication.iconName)
                         .foregroundStyle(item.medication.color)
@@ -220,7 +355,7 @@ private struct UpcomingHistoryRow: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 3)
     }
 
     private func formattedAbsoluteTime(_ date: Date) -> String {
@@ -257,8 +392,8 @@ private struct FilterChip: View {
         Button(action: action) {
             Text(label)
                 .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
                 .background(isSelected ? color.opacity(0.18) : Color(.tertiarySystemBackground), in: Capsule())
                 .overlay(Capsule().strokeBorder(isSelected ? color : .clear, lineWidth: 1.5))
         }
@@ -274,7 +409,7 @@ private struct StatsRowView: View {
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Medication.allCases, id: \.rawValue) { med in
-                HStack(spacing: 6) {
+                HStack(spacing: 5) {
                     Image(systemName: med.iconName)
                         .foregroundStyle(med.color)
                     VStack(alignment: .leading, spacing: 1) {
@@ -300,10 +435,10 @@ private struct DoseRowView: View {
     var medicationIcon: String { dose.medicationEnum?.iconName ?? "pill" }
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             Circle()
                 .fill(medicationColor.opacity(0.15))
-                .frame(width: 42, height: 42)
+                .frame(width: 38, height: 38)
                 .overlay {
                     Image(systemName: medicationIcon)
                         .foregroundStyle(medicationColor)
@@ -339,11 +474,23 @@ private struct DoseRowView: View {
 
             Spacer()
 
-            Text(dose.relativeTimestamp)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.trailing)
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                Text(relativeTimestamp(for: dose.timestamp, now: context.date))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+            }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 3)
+    }
+
+    private func relativeTimestamp(for timestamp: Date, now: Date) -> String {
+        let delta = now.timeIntervalSince(timestamp)
+        if abs(delta) < 30 {
+            return "just now"
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: timestamp, relativeTo: now)
     }
 }
