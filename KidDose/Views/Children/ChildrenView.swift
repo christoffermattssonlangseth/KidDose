@@ -12,6 +12,7 @@ struct ChildrenView: View {
     @State private var showFamilySetup = false
     @State private var isManualSyncInProgress = false
     @State private var lastManualSyncAt: Date?
+    @State private var manualSyncStatus: String?
     @State private var manualSyncError: String?
 
     private var canUseFamilySync: Bool {
@@ -127,9 +128,12 @@ struct ChildrenView: View {
                         isManualSyncInProgress = false
                         if success {
                             lastManualSyncAt = .now
-                            manualSyncError = nil
+                            manualSyncStatus = viewModel.familySyncLastStatusMessage ?? "Sync completed."
+                            manualSyncError = viewModel.familySyncLastErrorMessage
                         } else {
-                            manualSyncError = "Sync unavailable. Check iCloud sign-in and family code."
+                            manualSyncStatus = viewModel.familySyncLastStatusMessage
+                            manualSyncError = viewModel.familySyncLastErrorMessage
+                                ?? "Sync unavailable. Check iCloud sign-in and family code."
                         }
                     }
                 } label: {
@@ -153,6 +157,12 @@ struct ChildrenView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                if let manualSyncStatus {
+                    Text(manualSyncStatus)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 if let manualSyncError {
                     Text(manualSyncError)
                         .font(.caption)
@@ -169,6 +179,16 @@ struct ChildrenView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+
+            #if DEBUG
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Bundle: \(viewModel.bundleIdentifier)")
+                Text("Container: \(viewModel.cloudContainerIdentifier)")
+                Text("iCloud account: \(viewModel.iCloudAvailable ? "available" : "unavailable")")
+            }
+            .font(.caption2.monospaced())
+            .foregroundStyle(.secondary)
+            #endif
         }
     }
 
@@ -236,6 +256,8 @@ private struct FamilySetupSheet: View {
 
     @State private var joinCode: String = ""
     @State private var isWorking = false
+    @State private var statusMessage: String?
+    @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -253,6 +275,8 @@ private struct FamilySetupSheet: View {
                         isWorking = true
                         Task {
                             _ = await viewModel.createFamilyCode(context: context)
+                            statusMessage = viewModel.familySyncLastStatusMessage
+                            errorMessage = viewModel.familySyncLastErrorMessage
                             isWorking = false
                         }
                     }
@@ -271,7 +295,14 @@ private struct FamilySetupSheet: View {
                     Button("Join Family") {
                         isWorking = true
                         Task {
-                            _ = await viewModel.joinFamily(code: joinCode, context: context)
+                            let joined = await viewModel.joinFamily(code: joinCode, context: context)
+                            statusMessage = viewModel.familySyncLastStatusMessage
+                            if joined {
+                                errorMessage = viewModel.familySyncLastErrorMessage
+                            } else {
+                                errorMessage = viewModel.familySyncLastErrorMessage
+                                    ?? "Join failed. Verify the code and CloudKit setup."
+                            }
                             isWorking = false
                         }
                     }
@@ -286,7 +317,26 @@ private struct FamilySetupSheet: View {
                     Section {
                         Button("Stop Family Sync", role: .destructive) {
                             viewModel.clearFamilyCode()
+                            statusMessage = nil
+                            errorMessage = nil
                         }
+                    }
+                }
+
+                if let statusMessage {
+                    Section("Last sync result") {
+                        Text(statusMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if let errorMessage {
+                    Section("Last sync error") {
+                        Text(errorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
                     }
                 }
             }

@@ -25,6 +25,10 @@ final class DoseViewModel {
     var familyCode: String? { FamilyCloudSyncService.shared.familyCode }
     var familySyncAvailable: Bool { iCloudAvailable && FamilyCloudSyncService.shared.isConfigured }
     var familySyncEnabled: Bool { familyCode != nil }
+    var familySyncLastStatusMessage: String? { FamilyCloudSyncService.shared.lastSyncStatusMessage }
+    var familySyncLastErrorMessage: String? { FamilyCloudSyncService.shared.lastSyncErrorMessage }
+    var bundleIdentifier: String { Bundle.main.bundleIdentifier ?? "(unknown)" }
+    var cloudContainerIdentifier: String { CloudKitConfig.containerIdentifier ?? "(not configured)" }
 
     @MainActor
     func refreshiCloudStatus() async {
@@ -46,7 +50,7 @@ final class DoseViewModel {
         FamilyCloudSyncService.shared.familyCode = code
         await FamilyCloudSyncService.shared.uploadLocalData(context: context)
         await FamilyCloudSyncService.shared.sync(context: context)
-        return FamilyCloudSyncService.shared.familyCode != nil
+        return FamilyCloudSyncService.shared.lastSyncErrorMessage == nil
     }
 
     @MainActor
@@ -69,7 +73,7 @@ final class DoseViewModel {
         guard familySyncAvailable, familySyncEnabled else { return false }
         await FamilyCloudSyncService.shared.uploadLocalData(context: context)
         await FamilyCloudSyncService.shared.sync(context: context)
-        return true
+        return FamilyCloudSyncService.shared.lastSyncErrorMessage == nil
     }
 
     // MARK: - Dose Logic

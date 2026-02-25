@@ -172,6 +172,8 @@ final class FamilyCloudSyncService {
 
     private let defaults = UserDefaults.standard
     private let database: CKDatabase?
+    private(set) var lastSyncStatusMessage: String?
+    private(set) var lastSyncErrorMessage: String?
 
     private init() {
         if let containerIdentifier = CloudKitConfig.containerIdentifier {
@@ -203,10 +205,17 @@ final class FamilyCloudSyncService {
         let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
         let code = String((0..<8).compactMap { _ in alphabet.randomElement() })
         familyCode = code
+        lastSyncErrorMessage = nil
+        setStatus("Created family code.")
         return code
     }
 
     func uploadLocalData(context: ModelContext) async {
+        guard familyCode != nil else {
+            setStatus("Skipped upload because family code is missing.")
+            return
+        }
+        lastSyncErrorMessage = nil
         let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
         for child in children {
             await upsertChild(child, context: context)
@@ -216,10 +225,24 @@ final class FamilyCloudSyncService {
         for dose in doses.sorted(by: { $0.timestamp < $1.timestamp }) {
             await upsertDose(dose, context: context)
         }
+        if lastSyncErrorMessage == nil {
+            setStatus("Uploaded \(children.count) children and \(doses.count) doses.")
+        } else {
+            setStatus("Upload finished with errors.")
+        }
     }
 
     func sync(context: ModelContext) async {
-        guard let db = database, let familyCode else { return }
+        guard let db = database else {
+            lastSyncErrorMessage = "Family sync is not configured for this build."
+            setStatus("Sync skipped because CloudKit container is unavailable.")
+            return
+        }
+        guard let familyCode else {
+            setStatus("Sync skipped because no family code is set.")
+            return
+        }
+        lastSyncErrorMessage = nil
 
         do {
             let childRecords = try await fetchAllRecords(
@@ -237,6 +260,7 @@ final class FamilyCloudSyncService {
             let filteredDoses = doseRecords.filter { record in
                 normalizeCode(record[Constants.familyCodeField] as? String) == familyCode
             }
+            setStatus("Fetched \(filteredChildren.count) children and \(filteredDoses.count) doses.")
 
             let localChildren = (try? context.fetch(FetchDescriptor<Child>())) ?? []
             var childrenByRecordName: [String: Child] = [:]
@@ -348,7 +372,7 @@ final class FamilyCloudSyncService {
 
             try? context.save()
         } catch {
-            print("[FamilyCloudSync] Sync failed: \(error)")
+            setError("Sync failed", error: error)
         }
     }
 
@@ -380,7 +404,7 @@ final class FamilyCloudSyncService {
                 atomically: false
             )
         } catch {
-            print("[FamilyCloudSync] Child upsert failed: \(error)")
+            setError("Child upsert failed", error: error)
         }
     }
 
@@ -415,7 +439,7 @@ final class FamilyCloudSyncService {
                 atomically: false
             )
         } catch {
-            print("[FamilyCloudSync] Dose upsert failed: \(error)")
+            setError("Dose upsert failed", error: error)
         }
     }
 
@@ -438,7 +462,7 @@ final class FamilyCloudSyncService {
                 atomically: false
             )
         } catch {
-            print("[FamilyCloudSync] Delete failed: \(error)")
+            setError("Delete failed", error: error)
         }
     }
 
@@ -454,7 +478,7 @@ final class FamilyCloudSyncService {
                 atomically: false
             )
         } catch {
-            print("[FamilyCloudSync] Dose delete failed: \(error)")
+            setError("Dose delete failed", error: error)
         }
     }
 
@@ -494,6 +518,34 @@ final class FamilyCloudSyncService {
         guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func setStatus(_ message: String) {
+        lastSyncStatusMessage = message
+        print("[FamilyCloudSync] \(message)")
+    }
+
+    private func setError(_ prefix: String, error: Error) {
+        let detail = describe(error)
+        let message = "\(prefix): \(detail)"
+        lastSyncErrorMessage = message
+        print("[FamilyCloudSync] \(message)")
+    }
+
+    private func describe(_ error: Error) -> String {
+        guard let ckError = error as? CKError else {
+            return String(describing: error)
+        }
+
+        var parts: [String] = ["CKError.\(ckError.code.rawValue)", ckError.localizedDescription]
+        if let retryAfter = ckError.retryAfterSeconds {
+            parts.append("retryAfter=\(retryAfter)s")
+        }
+        if let partialErrors = ckError.partialErrorsByItemID,
+           !partialErrors.isEmpty {
+            parts.append("partialErrors=\(partialErrors.count)")
+        }
+        return parts.joined(separator: " | ")
     }
 }
 
