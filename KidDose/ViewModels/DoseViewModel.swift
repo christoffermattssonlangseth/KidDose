@@ -44,6 +44,7 @@ final class DoseViewModel {
     func joinFamily(code: String, context: ModelContext) async -> Bool {
         guard familySyncAvailable else { return false }
         FamilyCloudSyncService.shared.familyCode = code
+        await FamilyCloudSyncService.shared.uploadLocalData(context: context)
         await FamilyCloudSyncService.shared.sync(context: context)
         return FamilyCloudSyncService.shared.familyCode != nil
     }

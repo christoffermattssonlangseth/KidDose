@@ -245,7 +245,6 @@ final class FamilyCloudSyncService {
                     childrenByRecordName[recordName] = child
                 }
             }
-
             for record in filteredChildren {
                 let recordName = record.recordID.recordName
                 let name = (record[Constants.childNameField] as? String) ?? "Child"
@@ -288,10 +287,8 @@ final class FamilyCloudSyncService {
                 let rhsTimestamp = rhs[Constants.timestampField] as? Date ?? .distantPast
                 return lhsTimestamp < rhsTimestamp
             }
-
             for record in sortedDoses {
                 let recordName = record.recordID.recordName
-                guard dosesByRecordName[recordName] == nil else { continue }
                 guard
                     let medicationRaw = record[Constants.medicationField] as? String,
                     let medication = Medication(rawValue: medicationRaw)
@@ -324,6 +321,17 @@ final class FamilyCloudSyncService {
                         childrenByRecordName[childRecordName] = newChild
                     }
                     child = newChild
+                }
+
+                if let existingDose = dosesByRecordName[recordName] {
+                    existingDose.medication = medication.rawValue
+                    existingDose.timestamp = timestamp
+                    existingDose.givenBy = givenBy
+                    existingDose.usedIntervalHours = intervalHours
+                    if existingDose.child?.cloudRecordName != child.cloudRecordName {
+                        existingDose.child = child
+                    }
+                    continue
                 }
 
                 let dose = DoseLog(

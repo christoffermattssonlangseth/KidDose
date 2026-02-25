@@ -79,6 +79,15 @@ struct KidDoseApp: App {
                         // Pull family-shared records (if configured) on launch.
                         await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
                     }
+                    .task {
+                        while !Task.isCancelled {
+                            try? await Task.sleep(for: .seconds(15))
+
+                            // Public-database family sync currently relies on pull updates.
+                            // Polling keeps simulator + device reasonably in sync while both are open.
+                            await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
+                        }
+                    }
             } else {
                 StartupFailureView(message: startupError)
             }
