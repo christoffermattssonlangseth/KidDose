@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AA000001 /* KidDoseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* KidDoseApp.swift */; };
+			AA000001 /* KidDoseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* KidDoseApp.swift */; };
 		AA000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002 /* AppDelegate.swift */; };
 		AA000003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100003 /* ContentView.swift */; };
 		AA000010 /* Child.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100010 /* Child.swift */; };
@@ -24,8 +24,9 @@
 		AA000060 /* ChildrenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100060 /* ChildrenView.swift */; };
 		AA000061 /* AddChildSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100061 /* AddChildSheet.swift */; };
 		AA000062 /* CloudSharingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100062 /* CloudSharingController.swift */; };
-		AA000070 /* iCloudBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100070 /* iCloudBanner.swift */; };
-		AA000071 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100071 /* ColorExtensions.swift */; };
+			AA000070 /* iCloudBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100070 /* iCloudBanner.swift */; };
+			AA000071 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100071 /* ColorExtensions.swift */; };
+			AA000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA100090 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -48,10 +49,11 @@
 		AA100062 /* CloudSharingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSharingController.swift; sourceTree = "<group>"; };
 		AA100070 /* iCloudBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudBanner.swift; sourceTree = "<group>"; };
 		AA100071 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
-		AA100080 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		AA100081 /* KidDose.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.entitlements; sourceTree = "<group>"; };
-		AA100082 /* KidDose.debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.debug.entitlements; sourceTree = "<group>"; };
-		AAPROD001 /* KidDose.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KidDose.app; sourceTree = BUILT_PRODUCTS_DIR; };
+			AA100080 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+			AA100081 /* KidDose.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.entitlements; sourceTree = "<group>"; };
+			AA100082 /* KidDose.debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.debug.entitlements; sourceTree = "<group>"; };
+			AA100090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+			AAPROD001 /* KidDose.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KidDose.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -126,13 +128,14 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
-		AAGRP0006 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				AA100080 /* Info.plist */,
-				AA100081 /* KidDose.entitlements */,
-				AA100082 /* KidDose.debug.entitlements */,
-			);
+			AAGRP0006 /* Resources */ = {
+				isa = PBXGroup;
+				children = (
+					AA100090 /* Assets.xcassets */,
+					AA100080 /* Info.plist */,
+					AA100081 /* KidDose.entitlements */,
+					AA100082 /* KidDose.debug.entitlements */,
+				);
 			path = Resources;
 			sourceTree = "<group>";
 		};
@@ -236,13 +239,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		AABP0002 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+			AABP0002 /* Resources */ = {
+				isa = PBXResourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+					AA000090 /* Assets.xcassets in Resources */,
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
