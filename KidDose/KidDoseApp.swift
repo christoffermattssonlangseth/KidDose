@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import LocalAuthentication
 
 @main
 struct KidDoseApp: App {
@@ -10,6 +11,7 @@ struct KidDoseApp: App {
     let modelContainer: ModelContainer?
     let startupError: String?
     @State private var viewModel = DoseViewModel()
+    @State private var appLock = AppLockService()
 
     init() {
         let startup = Self.makeModelContainer()
@@ -61,41 +63,67 @@ struct KidDoseApp: App {
     var body: some Scene {
         WindowGroup {
             if let modelContainer {
-                ContentView()
-                    .modelContainer(modelContainer)
-                    .environment(viewModel)
-                    .task {
-                        appDelegate.modelContainer = modelContainer
+                ZStack {
+                    ContentView()
+                        .modelContainer(modelContainer)
+                        .environment(viewModel)
+                        .task {
+                            appDelegate.modelContainer = modelContainer
 
-                        // Request notification permission on first launch.
-                        await NotificationManager.shared.requestPermission()
+                            // Request notification permission on first launch.
+                            await NotificationManager.shared.requestPermission()
 
-                        // Check iCloud sign-in status.
-                        await viewModel.refreshiCloudStatus()
+                            // Check iCloud sign-in status.
+                            await viewModel.refreshiCloudStatus()
 
-                        // Set up the CloudKit subscription for cross-device dose alerts.
-                        viewModel.setupCloudKitSubscription()
+                            // Set up the CloudKit subscription for cross-device dose alerts.
+                            viewModel.setupCloudKitSubscription()
 
-                        // Pull family-shared records (if configured) on launch.
-                        await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
-                    }
-                    .task {
-                        while !Task.isCancelled {
-                            try? await Task.sleep(for: .seconds(15))
+                            if !viewModel.familySyncEnabled {
+                                _ = await viewModel.refreshAcceptedFamily(context: modelContainer.mainContext)
+                            }
 
-                            // Public-database family sync currently relies on pull updates.
-                            // Polling keeps simulator + device reasonably in sync while both are open.
+                            // Pull family-shared records (if configured) on launch.
                             await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
                         }
+                        .task {
+                            while !Task.isCancelled {
+                                try? await Task.sleep(for: .seconds(15))
+
+                                // Family sync relies on pull updates while both devices are open.
+                                await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
+                            }
+                        }
+                        .task {
+                            appLock.restoreSettings()
+                            if appLock.isEnabled {
+                                _ = await appLock.requestUnlock()
+                            }
+                        }
+
+                    if appLock.isEnabled && !appLock.isUnlocked {
+                        AppLockOverlay()
                     }
+                }
+                .environment(appLock)
             } else {
                 StartupFailureView(message: startupError)
             }
         }
         .onChange(of: scenePhase) {
-            guard scenePhase == .active, let modelContainer else { return }
-            Task {
-                await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
+            guard let modelContainer else { return }
+            switch scenePhase {
+            case .active:
+                Task {
+                    if appLock.isEnabled && !appLock.isUnlocked {
+                        _ = await appLock.requestUnlock()
+                    }
+                    await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
+                }
+            case .inactive, .background:
+                appLock.lock()
+            @unknown default:
+                break
             }
         }
     }
@@ -121,5 +149,127 @@ private struct StartupFailureView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(.systemGroupedBackground))
+    }
+}
+
+@MainActor
+@Observable
+final class AppLockService {
+    private enum Keys {
+        static let enabled = "KidDose.security.appLockEnabled"
+    }
+
+    private let defaults = UserDefaults.standard
+    var isEnabled: Bool = false
+    var isUnlocked: Bool = true
+    var isUnlocking: Bool = false
+    var lastErrorMessage: String?
+
+    func restoreSettings() {
+        isEnabled = defaults.bool(forKey: Keys.enabled)
+        isUnlocked = !isEnabled
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        isEnabled = enabled
+        defaults.set(enabled, forKey: Keys.enabled)
+        if !enabled {
+            isUnlocked = true
+            lastErrorMessage = nil
+        } else {
+            lock()
+        }
+    }
+
+    func lock() {
+        guard isEnabled else { return }
+        isUnlocked = false
+    }
+
+    @discardableResult
+    func requestUnlock() async -> Bool {
+        guard isEnabled else {
+            isUnlocked = true
+            return true
+        }
+        guard !isUnlocked, !isUnlocking else { return isUnlocked }
+
+        isUnlocking = true
+        defer { isUnlocking = false }
+
+        let context = LAContext()
+        var authError: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &authError) else {
+            lastErrorMessage = authError?.localizedDescription
+                ?? "Face ID / passcode is unavailable on this device."
+            return false
+        }
+
+        do {
+            let success = try await context.evaluatePolicy(
+                .deviceOwnerAuthentication,
+                localizedReason: "Unlock KidDose to view medication history and timers."
+            )
+            if success {
+                isUnlocked = true
+                lastErrorMessage = nil
+                return true
+            }
+            return false
+        } catch {
+            lastErrorMessage = error.localizedDescription
+            return false
+        }
+    }
+}
+
+private struct AppLockOverlay: View {
+    @Environment(AppLockService.self) private var appLock
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground)
+                .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                Image(systemName: "lock.shield")
+                    .font(.system(size: 38, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Text("KidDose is locked")
+                    .font(.title3.bold())
+
+                Text("Use Face ID or your device passcode to continue.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                Button {
+                    Task {
+                        _ = await appLock.requestUnlock()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if appLock.isUnlocking {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Text(appLock.isUnlocking ? "Unlocking..." : "Unlock")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(appLock.isUnlocking)
+
+                if let message = appLock.lastErrorMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 2)
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 420)
+        }
     }
 }

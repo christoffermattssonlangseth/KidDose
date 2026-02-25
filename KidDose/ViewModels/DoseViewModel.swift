@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CloudKit
 
 // MARK: - Scheduled Dose (upcoming)
 
@@ -22,9 +23,11 @@ final class DoseViewModel {
     // MARK: - iCloud Status
 
     var iCloudAvailable: Bool = true
-    var familyCode: String? { FamilyCloudSyncService.shared.familyCode }
     var familySyncAvailable: Bool { iCloudAvailable && FamilyCloudSyncService.shared.isConfigured }
-    var familySyncEnabled: Bool { familyCode != nil }
+    var familySyncEnabled: Bool { FamilyCloudSyncService.shared.isFamilyActive }
+    var familySyncOwner: Bool { FamilyCloudSyncService.shared.isFamilyOwner }
+    var familyIdentifier: String? { FamilyCloudSyncService.shared.familyIdentifier }
+    var familyInviteURL: URL? { FamilyCloudSyncService.shared.inviteURL }
     var familySyncLastStatusMessage: String? { FamilyCloudSyncService.shared.lastSyncStatusMessage }
     var familySyncLastErrorMessage: String? { FamilyCloudSyncService.shared.lastSyncErrorMessage }
     var bundleIdentifier: String { Bundle.main.bundleIdentifier ?? "(unknown)" }
@@ -36,26 +39,28 @@ final class DoseViewModel {
     }
 
     @MainActor
-    func createFamilyCode(context: ModelContext) async -> String? {
+    func createSecureFamilyInvite(context: ModelContext) async -> URL? {
         guard familySyncAvailable else { return nil }
-        let code = FamilyCloudSyncService.shared.createFamilyCode()
-        await FamilyCloudSyncService.shared.uploadLocalData(context: context)
-        await FamilyCloudSyncService.shared.sync(context: context)
-        return code
+        return await FamilyCloudSyncService.shared.createSecureFamily(context: context)
     }
 
     @MainActor
-    func joinFamily(code: String, context: ModelContext) async -> Bool {
+    func refreshAcceptedFamily(context: ModelContext) async -> Bool {
         guard familySyncAvailable else { return false }
-        FamilyCloudSyncService.shared.familyCode = code
-        await FamilyCloudSyncService.shared.uploadLocalData(context: context)
-        await FamilyCloudSyncService.shared.sync(context: context)
-        return FamilyCloudSyncService.shared.lastSyncErrorMessage == nil
+        return await FamilyCloudSyncService.shared.discoverAcceptedFamily(context: context)
     }
 
     @MainActor
-    func clearFamilyCode() {
-        FamilyCloudSyncService.shared.familyCode = nil
+    func acceptCloudShare(
+        metadata: CKShare.Metadata,
+        context: ModelContext?
+    ) async -> Bool {
+        await FamilyCloudSyncService.shared.acceptShare(metadata: metadata, context: context)
+    }
+
+    @MainActor
+    func clearFamilySync() {
+        FamilyCloudSyncService.shared.clearFamily()
     }
 
     @MainActor

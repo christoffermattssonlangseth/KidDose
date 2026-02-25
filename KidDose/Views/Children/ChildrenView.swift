@@ -84,26 +84,36 @@ struct ChildrenView: View {
     @ViewBuilder
     private var sharingButton: some View {
         VStack(spacing: 8) {
-            if let familyCode = viewModel.familyCode {
+            if viewModel.familySyncEnabled {
                 HStack {
-                    Text("Family code")
+                    Text("Secure family sync")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text(familyCode)
+                    Text(viewModel.familySyncOwner ? "Owner" : "Participant")
                         .font(.caption.monospacedDigit().bold())
                 }
 
-                ShareLink(
-                    item: "Join our KidDose family using code: \(familyCode)",
-                    preview: SharePreview("KidDose Family Code")
-                ) {
-                    Label("Share Code", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .font(.headline)
+                if let familyID = viewModel.familyIdentifier {
+                    Text(familyID)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
-                .buttonStyle(.bordered)
+
+                if viewModel.familySyncOwner, let inviteURL = viewModel.familyInviteURL {
+                    ShareLink(
+                        item: inviteURL,
+                        preview: SharePreview("KidDose Family Invite")
+                    ) {
+                        Label("Invite Parent", systemImage: "person.badge.plus")
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .font(.headline)
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
 
             Button {
@@ -133,7 +143,7 @@ struct ChildrenView: View {
                         } else {
                             manualSyncStatus = viewModel.familySyncLastStatusMessage
                             manualSyncError = viewModel.familySyncLastErrorMessage
-                                ?? "Sync unavailable. Check iCloud sign-in and family code."
+                                ?? "Sync unavailable. Check iCloud sign-in and family setup."
                         }
                     }
                 } label: {
@@ -252,10 +262,11 @@ private struct ChildRowView: View {
 private struct FamilySetupSheet: View {
     @Environment(\.modelContext) private var context
     @Environment(DoseViewModel.self) private var viewModel
+    @Environment(AppLockService.self) private var appLock
     @Environment(\.dismiss) private var dismiss
 
-    @State private var joinCode: String = ""
     @State private var isWorking = false
+    @State private var inviteURL: URL?
     @State private var statusMessage: String?
     @State private var errorMessage: String?
 
@@ -270,55 +281,62 @@ private struct FamilySetupSheet: View {
                     }
                 }
 
-                Section("Create a new family") {
-                    Button("Create Family Code") {
+                Section("Create secure family") {
+                    Button("Create Family & Invite") {
                         isWorking = true
                         Task {
-                            _ = await viewModel.createFamilyCode(context: context)
+                            inviteURL = await viewModel.createSecureFamilyInvite(context: context)
                             statusMessage = viewModel.familySyncLastStatusMessage
                             errorMessage = viewModel.familySyncLastErrorMessage
                             isWorking = false
                         }
                     }
                     .disabled(!viewModel.familySyncAvailable || isWorking)
+                }
 
-                    if let code = viewModel.familyCode {
-                        LabeledContent("Current code", value: code)
-                            .font(.caption.monospacedDigit())
+                if viewModel.familySyncOwner, let inviteURL = inviteURL ?? viewModel.familyInviteURL {
+                    Section("Invite partner") {
+                        ShareLink(
+                            item: inviteURL,
+                            preview: SharePreview("KidDose Family Invite")
+                        ) {
+                            Label("Share Invite Link", systemImage: "square.and.arrow.up")
+                        }
                     }
                 }
 
-                Section("Join with a code") {
-                    TextField("Enter code", text: $joinCode)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                    Button("Join Family") {
+                Section("Join partner family") {
+                    Text("Ask your partner to send the CloudKit invite link. After accepting it, tap refresh below.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Button("Refresh Accepted Invite") {
                         isWorking = true
                         Task {
-                            let joined = await viewModel.joinFamily(code: joinCode, context: context)
+                            let joined = await viewModel.refreshAcceptedFamily(context: context)
                             statusMessage = viewModel.familySyncLastStatusMessage
                             if joined {
                                 errorMessage = viewModel.familySyncLastErrorMessage
                             } else {
                                 errorMessage = viewModel.familySyncLastErrorMessage
-                                    ?? "Join failed. Verify the code and CloudKit setup."
+                                    ?? "No accepted invite found yet."
                             }
                             isWorking = false
                         }
                     }
                     .disabled(
-                        joinCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || isWorking
+                        isWorking
                             || !viewModel.familySyncAvailable
                     )
                 }
 
                 if viewModel.familySyncEnabled {
                     Section {
-                        Button("Stop Family Sync", role: .destructive) {
-                            viewModel.clearFamilyCode()
+                        Button("Disconnect Family Sync", role: .destructive) {
+                            viewModel.clearFamilySync()
                             statusMessage = nil
                             errorMessage = nil
+                            inviteURL = nil
                         }
                     }
                 }
@@ -337,6 +355,22 @@ private struct FamilySetupSheet: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
+                    }
+                }
+
+                Section("Privacy") {
+                    Toggle(
+                        "Require Face ID / Passcode",
+                        isOn: Binding(
+                            get: { appLock.isEnabled },
+                            set: { appLock.setEnabled($0) }
+                        )
+                    )
+
+                    if appLock.isEnabled {
+                        Text("KidDose will lock when it leaves the foreground.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }

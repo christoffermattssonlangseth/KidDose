@@ -151,9 +151,9 @@ final class FamilyCloudSyncService {
     static let shared = FamilyCloudSyncService()
 
     private enum Constants {
+        static let familyZonePrefix = "KidDoseFamily."
         static let childRecordType = "KidDoseChild"
         static let doseRecordType = "KidDoseDose"
-        static let familyCodeField = "familyCode"
         static let childNameField = "name"
         static let childColorField = "colorHex"
         static let childIbuprofenDoseNoteField = "ibuprofenDoseNote"
@@ -166,56 +166,154 @@ final class FamilyCloudSyncService {
         static let givenByField = "givenBy"
         static let usedIntervalField = "usedIntervalHours"
         static let updatedAtField = "updatedAt"
-        static let familyCodeDefaultsKey = "KidDose.familyCode"
+        static let zoneNameDefaultsKey = "KidDose.family.zoneName"
+        static let zoneOwnerDefaultsKey = "KidDose.family.zoneOwnerName"
+        static let roleDefaultsKey = "KidDose.family.role"
+        static let inviteURLDefaultsKey = "KidDose.family.inviteURL"
         static let maxQueryPageSize = 400
     }
 
+    private enum FamilyRole: String {
+        case owner
+        case participant
+    }
+
     private let defaults = UserDefaults.standard
-    private let database: CKDatabase?
+    private let container: CKContainer?
     private(set) var lastSyncStatusMessage: String?
     private(set) var lastSyncErrorMessage: String?
 
     private init() {
         if let containerIdentifier = CloudKitConfig.containerIdentifier {
-            let container = CKContainer(identifier: containerIdentifier)
-            database = container.publicCloudDatabase
+            container = CKContainer(identifier: containerIdentifier)
         } else {
-            database = nil
+            container = nil
         }
     }
 
     var isConfigured: Bool {
-        database != nil
+        container != nil
     }
 
-    var familyCode: String? {
-        get {
-            normalizeCode(defaults.string(forKey: Constants.familyCodeDefaultsKey))
+    var isFamilyActive: Bool {
+        activeZoneID != nil && activeRole != nil
+    }
+
+    var isFamilyOwner: Bool {
+        activeRole == .owner
+    }
+
+    var familyIdentifier: String? {
+        activeZoneID?.zoneName
+    }
+
+    var inviteURL: URL? {
+        guard
+            let value = defaults.string(forKey: Constants.inviteURLDefaultsKey),
+            let url = URL(string: value)
+        else { return nil }
+        return url
+    }
+
+    func createSecureFamily(context: ModelContext) async -> URL? {
+        guard let container else {
+            setStatus("Cannot create family because CloudKit is not configured.")
+            return nil
         }
-        set {
-            if let normalized = normalizeCode(newValue) {
-                defaults.set(normalized, forKey: Constants.familyCodeDefaultsKey)
-            } else {
-                defaults.removeObject(forKey: Constants.familyCodeDefaultsKey)
+
+        do {
+            let privateDB = container.privateCloudDatabase
+            let zoneName = Constants.familyZonePrefix + UUID().uuidString
+            let zoneID = CKRecordZone.ID(zoneName: zoneName)
+            let zone = CKRecordZone(zoneID: zoneID)
+            _ = try await privateDB.modifyRecordZones(saving: [zone], deleting: [])
+
+            let share = CKShare(recordZoneID: zoneID)
+            share[CKShare.SystemFieldKey.title] = "KidDose Family" as CKRecordValue
+            share.publicPermission = .none
+            _ = try await privateDB.modifyRecords(saving: [share], deleting: [])
+
+            setActiveFamily(zoneID: zoneID, role: .owner, inviteURL: share.url)
+            lastSyncErrorMessage = nil
+            setStatus("Secure family created. Invite another parent using the share link.")
+
+            await uploadLocalData(context: context)
+            await sync(context: context)
+            return share.url
+        } catch {
+            setError("Failed to create secure family", error: error)
+            return nil
+        }
+    }
+
+    @discardableResult
+    func discoverAcceptedFamily(context: ModelContext? = nil) async -> Bool {
+        guard let container else {
+            setStatus("Cannot discover shared families because CloudKit is not configured.")
+            return false
+        }
+
+        do {
+            let zones = try await container.sharedCloudDatabase.allRecordZones()
+            guard
+                let zone = zones
+                    .map(\.zoneID)
+                    .sorted(by: { $0.zoneName < $1.zoneName })
+                    .first(where: { $0.zoneName.hasPrefix(Constants.familyZonePrefix) })
+            else {
+                setStatus("No accepted secure family share found on this account.")
+                return false
             }
+
+            setActiveFamily(zoneID: zone, role: .participant, inviteURL: nil)
+            setStatus("Connected to secure family share.")
+            if let context {
+                await sync(context: context)
+            }
+            return true
+        } catch {
+            setError("Failed to discover shared family", error: error)
+            return false
         }
     }
 
-    func createFamilyCode() -> String {
-        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
-        let code = String((0..<8).compactMap { _ in alphabet.randomElement() })
-        familyCode = code
-        lastSyncErrorMessage = nil
-        setStatus("Created family code.")
-        return code
+    @discardableResult
+    func acceptShare(metadata: CKShare.Metadata, context: ModelContext? = nil) async -> Bool {
+        guard let container else {
+            setStatus("Cannot accept share because CloudKit is not configured.")
+            return false
+        }
+
+        do {
+            _ = try await container.accept(metadata)
+            let zoneID = metadata.rootRecordID.zoneID
+            setActiveFamily(zoneID: zoneID, role: .participant, inviteURL: nil)
+            setStatus("Cloud share accepted. Secure family sync is now enabled.")
+            if let context {
+                await sync(context: context)
+            }
+            return true
+        } catch {
+            setError("Failed to accept CloudKit share", error: error)
+            return false
+        }
+    }
+
+    func clearFamily() {
+        defaults.removeObject(forKey: Constants.zoneNameDefaultsKey)
+        defaults.removeObject(forKey: Constants.zoneOwnerDefaultsKey)
+        defaults.removeObject(forKey: Constants.roleDefaultsKey)
+        defaults.removeObject(forKey: Constants.inviteURLDefaultsKey)
+        setStatus("Family sync has been disconnected on this device.")
     }
 
     func uploadLocalData(context: ModelContext) async {
-        guard familyCode != nil else {
-            setStatus("Skipped upload because family code is missing.")
+        guard let activeDatabase, activeZoneID != nil else {
+            setStatus("Skipped upload because secure family sync is not enabled.")
             return
         }
         lastSyncErrorMessage = nil
+
         let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
         for child in children {
             await upsertChild(child, context: context)
@@ -225,6 +323,8 @@ final class FamilyCloudSyncService {
         for dose in doses.sorted(by: { $0.timestamp < $1.timestamp }) {
             await upsertDose(dose, context: context)
         }
+
+        _ = activeDatabase
         if lastSyncErrorMessage == nil {
             setStatus("Uploaded \(children.count) children and \(doses.count) doses.")
         } else {
@@ -233,29 +333,29 @@ final class FamilyCloudSyncService {
     }
 
     func sync(context: ModelContext) async {
-        guard let db = database else {
+        guard let db = activeDatabase else {
             lastSyncErrorMessage = "Family sync is not configured for this build."
             setStatus("Sync skipped because CloudKit container is unavailable.")
             return
         }
-        guard let familyCode else {
-            setStatus("Sync skipped because no family code is set.")
+        guard let zoneID = activeZoneID else {
+            setStatus("Sync skipped because secure family sync is not enabled.")
             return
         }
         lastSyncErrorMessage = nil
 
         do {
-            let filteredChildren = try await fetchFamilyRecords(
+            let childRecords = try await fetchRecords(
                 recordType: Constants.childRecordType,
-                familyCode: familyCode,
-                database: db
+                database: db,
+                zoneID: zoneID
             )
-            let filteredDoses = try await fetchFamilyRecords(
+            let doseRecords = try await fetchRecords(
                 recordType: Constants.doseRecordType,
-                familyCode: familyCode,
-                database: db
+                database: db,
+                zoneID: zoneID
             )
-            setStatus("Fetched \(filteredChildren.count) children and \(filteredDoses.count) doses for family \(familyCode).")
+            setStatus("Fetched \(childRecords.count) children and \(doseRecords.count) doses.")
 
             let localChildren = (try? context.fetch(FetchDescriptor<Child>())) ?? []
             var childrenByRecordName: [String: Child] = [:]
@@ -264,7 +364,7 @@ final class FamilyCloudSyncService {
                     childrenByRecordName[recordName] = child
                 }
             }
-            for record in filteredChildren {
+            for record in childRecords {
                 let recordName = record.recordID.recordName
                 let name = (record[Constants.childNameField] as? String) ?? "Child"
                 let colorHex = (record[Constants.childColorField] as? String) ?? "#4ECDC4"
@@ -301,7 +401,7 @@ final class FamilyCloudSyncService {
                 }
             }
 
-            let sortedDoses = filteredDoses.sorted { lhs, rhs in
+            let sortedDoses = doseRecords.sorted { lhs, rhs in
                 let lhsTimestamp = lhs[Constants.timestampField] as? Date ?? .distantPast
                 let rhsTimestamp = rhs[Constants.timestampField] as? Date ?? .distantPast
                 return lhsTimestamp < rhsTimestamp
@@ -372,17 +472,16 @@ final class FamilyCloudSyncService {
     }
 
     func upsertChild(_ child: Child, context: ModelContext) async {
-        guard let db = database, let familyCode else { return }
+        guard let db = activeDatabase, let zoneID = activeZoneID else { return }
 
         if child.cloudRecordName == nil {
-            child.cloudRecordName = "\(familyCode)_child_\(UUID().uuidString)"
+            child.cloudRecordName = UUID().uuidString
             try? context.save()
         }
         guard let recordName = child.cloudRecordName else { return }
 
-        let recordID = CKRecord.ID(recordName: recordName)
+        let recordID = CKRecord.ID(recordName: recordName, zoneID: zoneID)
         let record = CKRecord(recordType: Constants.childRecordType, recordID: recordID)
-        record[Constants.familyCodeField] = familyCode as CKRecordValue
         record[Constants.childNameField] = child.name as CKRecordValue
         record[Constants.childColorField] = child.colorHex as CKRecordValue
         record[Constants.childIbuprofenDoseNoteField] =
@@ -404,19 +503,18 @@ final class FamilyCloudSyncService {
     }
 
     func upsertDose(_ dose: DoseLog, context: ModelContext) async {
-        guard let db = database, let familyCode, let child = dose.child else { return }
+        guard let db = activeDatabase, let zoneID = activeZoneID, let child = dose.child else { return }
 
         await upsertChild(child, context: context)
 
         if dose.cloudRecordName == nil {
-            dose.cloudRecordName = "\(familyCode)_dose_\(UUID().uuidString)"
+            dose.cloudRecordName = UUID().uuidString
             try? context.save()
         }
         guard let recordName = dose.cloudRecordName else { return }
 
-        let recordID = CKRecord.ID(recordName: recordName)
+        let recordID = CKRecord.ID(recordName: recordName, zoneID: zoneID)
         let record = CKRecord(recordType: Constants.doseRecordType, recordID: recordID)
-        record[Constants.familyCodeField] = familyCode as CKRecordValue
         record[Constants.childRecordNameField] = (child.cloudRecordName ?? "") as CKRecordValue
         record[Constants.childFallbackNameField] = child.name as CKRecordValue
         record[Constants.childFallbackColorField] = child.colorHex as CKRecordValue
@@ -439,14 +537,14 @@ final class FamilyCloudSyncService {
     }
 
     func deleteChild(_ child: Child, doseRecordNames: [String]) async {
-        guard let db = database else { return }
+        guard let db = activeDatabase, let zoneID = activeZoneID else { return }
 
         var idsToDelete: [CKRecord.ID] = []
         if let childRecordName = child.cloudRecordName {
-            idsToDelete.append(CKRecord.ID(recordName: childRecordName))
+            idsToDelete.append(CKRecord.ID(recordName: childRecordName, zoneID: zoneID))
         }
         for recordName in doseRecordNames {
-            idsToDelete.append(CKRecord.ID(recordName: recordName))
+            idsToDelete.append(CKRecord.ID(recordName: recordName, zoneID: zoneID))
         }
         guard !idsToDelete.isEmpty else { return }
 
@@ -462,8 +560,8 @@ final class FamilyCloudSyncService {
     }
 
     func deleteDoses(_ doseRecordNames: [String]) async {
-        guard let db = database else { return }
-        let idsToDelete = doseRecordNames.map { CKRecord.ID(recordName: $0) }
+        guard let db = activeDatabase, let zoneID = activeZoneID else { return }
+        let idsToDelete = doseRecordNames.map { CKRecord.ID(recordName: $0, zoneID: zoneID) }
         guard !idsToDelete.isEmpty else { return }
 
         do {
@@ -477,18 +575,16 @@ final class FamilyCloudSyncService {
         }
     }
 
-    private func fetchFamilyRecords(
+    private func fetchRecords(
         recordType: String,
-        familyCode: String,
-        database: CKDatabase
+        database: CKDatabase,
+        zoneID: CKRecordZone.ID
     ) async throws -> [CKRecord] {
         var records: [CKRecord] = []
-        let query = CKQuery(
-            recordType: recordType,
-            predicate: NSPredicate(format: "%K == %@", Constants.familyCodeField, familyCode)
-        )
+        let query = CKQuery(recordType: recordType, predicate: NSPredicate(value: true))
         var page = try await database.records(
             matching: query,
+            inZoneWith: zoneID,
             resultsLimit: Constants.maxQueryPageSize
         )
 
@@ -508,12 +604,42 @@ final class FamilyCloudSyncService {
         return records
     }
 
-    private func normalizeCode(_ value: String?) -> String? {
-        guard let value else { return nil }
-        let normalized = value
-            .uppercased()
-            .filter { $0.isLetter || $0.isNumber }
-        return normalized.isEmpty ? nil : normalized
+    private var activeRole: FamilyRole? {
+        guard let raw = defaults.string(forKey: Constants.roleDefaultsKey) else { return nil }
+        return FamilyRole(rawValue: raw)
+    }
+
+    private var activeZoneID: CKRecordZone.ID? {
+        guard
+            let zoneName = defaults.string(forKey: Constants.zoneNameDefaultsKey),
+            let ownerName = defaults.string(forKey: Constants.zoneOwnerDefaultsKey),
+            !zoneName.isEmpty,
+            !ownerName.isEmpty
+        else {
+            return nil
+        }
+        return CKRecordZone.ID(zoneName: zoneName, ownerName: ownerName)
+    }
+
+    private var activeDatabase: CKDatabase? {
+        guard let container, let role = activeRole else { return nil }
+        switch role {
+        case .owner:
+            return container.privateCloudDatabase
+        case .participant:
+            return container.sharedCloudDatabase
+        }
+    }
+
+    private func setActiveFamily(zoneID: CKRecordZone.ID, role: FamilyRole, inviteURL: URL?) {
+        defaults.set(zoneID.zoneName, forKey: Constants.zoneNameDefaultsKey)
+        defaults.set(zoneID.ownerName, forKey: Constants.zoneOwnerDefaultsKey)
+        defaults.set(role.rawValue, forKey: Constants.roleDefaultsKey)
+        if let inviteURL {
+            defaults.set(inviteURL.absoluteString, forKey: Constants.inviteURLDefaultsKey)
+        } else {
+            defaults.removeObject(forKey: Constants.inviteURLDefaultsKey)
+        }
     }
 
     private func normalizeNote(_ value: String?) -> String? {
@@ -529,10 +655,7 @@ final class FamilyCloudSyncService {
 
     private func setError(_ prefix: String, error: Error) {
         let detail = describe(error)
-        var message = "\(prefix): \(detail)"
-        if detail.localizedCaseInsensitiveContains("not marked queryable") {
-            message += " | CloudKit schema issue: mark 'familyCode' as Queryable for KidDoseChild/KidDoseDose in CloudKit Console (Development), then deploy schema."
-        }
+        let message = "\(prefix): \(detail)"
         lastSyncErrorMessage = message
         print("[FamilyCloudSync] \(message)")
     }

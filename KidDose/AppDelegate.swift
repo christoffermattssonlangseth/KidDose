@@ -1,5 +1,6 @@
 import UIKit
 import SwiftData
+import CloudKit
 
 /// AppDelegate handles remote push notifications from CloudKit subscriptions.
 final class AppDelegate: NSObject, UIApplicationDelegate {
@@ -52,6 +53,19 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
                 )
             }
             completionHandler(.newData)
+        }
+    }
+
+    func application(
+        _ application: UIApplication,
+        userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata
+    ) {
+        Task {
+            let context = modelContainer.map(ModelContext.init)
+            _ = await FamilyCloudSyncService.shared.acceptShare(
+                metadata: cloudKitShareMetadata,
+                context: context
+            )
         }
     }
 }
