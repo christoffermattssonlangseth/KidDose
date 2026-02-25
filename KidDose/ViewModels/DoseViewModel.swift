@@ -55,8 +55,21 @@ final class DoseViewModel {
     }
 
     @MainActor
-    func syncFamilyCloud(context: ModelContext) async {
+    func syncFamilyCloud(context: ModelContext, includeUpload: Bool = false) async {
+        guard familySyncEnabled else { return }
+        if includeUpload {
+            await FamilyCloudSyncService.shared.uploadLocalData(context: context)
+        }
         await FamilyCloudSyncService.shared.sync(context: context)
+    }
+
+    @MainActor
+    func runManualFamilySync(context: ModelContext) async -> Bool {
+        await refreshiCloudStatus()
+        guard familySyncAvailable, familySyncEnabled else { return false }
+        await FamilyCloudSyncService.shared.uploadLocalData(context: context)
+        await FamilyCloudSyncService.shared.sync(context: context)
+        return true
     }
 
     // MARK: - Dose Logic

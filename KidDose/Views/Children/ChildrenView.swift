@@ -10,6 +10,9 @@ struct ChildrenView: View {
     @State private var showDeleteConfirm = false
     @State private var childToDelete: Child?
     @State private var showFamilySetup = false
+    @State private var isManualSyncInProgress = false
+    @State private var lastManualSyncAt: Date?
+    @State private var manualSyncError: String?
 
     private var canUseFamilySync: Bool {
         viewModel.familySyncAvailable
@@ -119,15 +122,42 @@ struct ChildrenView: View {
             if viewModel.familySyncEnabled {
                 Button {
                     Task {
-                        await viewModel.syncFamilyCloud(context: context)
+                        isManualSyncInProgress = true
+                        let success = await viewModel.runManualFamilySync(context: context)
+                        isManualSyncInProgress = false
+                        if success {
+                            lastManualSyncAt = .now
+                            manualSyncError = nil
+                        } else {
+                            manualSyncError = "Sync unavailable. Check iCloud sign-in and family code."
+                        }
                     }
                 } label: {
-                    Label("Sync Now", systemImage: "arrow.clockwise")
+                    Label(
+                        isManualSyncInProgress ? "Syncing..." : "Sync Now",
+                        systemImage: "arrow.clockwise"
+                    )
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                 }
                 .buttonStyle(.bordered)
-                .disabled(!canUseFamilySync)
+                .disabled(
+                    isManualSyncInProgress
+                        || !viewModel.familySyncEnabled
+                        || !FamilyCloudSyncService.shared.isConfigured
+                )
+
+                if let lastManualSyncAt {
+                    Text("Last sync: \(lastManualSyncAt.formatted(date: .omitted, time: .shortened))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let manualSyncError {
+                    Text(manualSyncError)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if !viewModel.iCloudAvailable {
