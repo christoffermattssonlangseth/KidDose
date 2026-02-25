@@ -9,6 +9,7 @@ struct ScheduledDose: Identifiable {
     let child: Child
     let medication: Medication
     let nextDate: Date
+    let intervalHours: Double
 }
 
 // MARK: - DoseViewModel
@@ -94,9 +95,51 @@ final class DoseViewModel {
         var result: [ScheduledDose] = []
         for child in children {
             for med in Medication.allCases {
-                if let next = nextDoseDate(for: med, child: child) {
-                    result.append(ScheduledDose(child: child, medication: med, nextDate: next))
-                }
+                guard let lastDose = child.lastDose(for: med) else { continue }
+
+                let interval = effectiveInterval(lastDose: lastDose, medication: med)
+                let nextAllowed = lastDose.timestamp.addingTimeInterval(interval * 3600)
+                let next = max(nextAllowed, Date.now)
+                result.append(
+                    ScheduledDose(
+                        child: child,
+                        medication: med,
+                        nextDate: next,
+                        intervalHours: interval
+                    )
+                )
+            }
+        }
+        return result.sorted { $0.nextDate < $1.nextDate }
+    }
+
+    /// Projects the next `dosesPerMedication` dose windows for each medication,
+    /// assuming doses are given exactly on-time from now onward.
+    func projectedSchedule(
+        for child: Child,
+        dosesPerMedication: Int = 12,
+        from referenceDate: Date = .now
+    ) -> [ScheduledDose] {
+        guard dosesPerMedication > 0 else { return [] }
+
+        var result: [ScheduledDose] = []
+        for med in Medication.allCases {
+            guard let lastDose = child.lastDose(for: med) else { continue }
+
+            let interval = effectiveInterval(lastDose: lastDose, medication: med)
+            let nextAllowed = lastDose.timestamp.addingTimeInterval(interval * 3600)
+            let firstDate = max(nextAllowed, referenceDate)
+
+            for step in 0..<dosesPerMedication {
+                let nextDate = firstDate.addingTimeInterval(Double(step) * interval * 3600)
+                result.append(
+                    ScheduledDose(
+                        child: child,
+                        medication: med,
+                        nextDate: nextDate,
+                        intervalHours: interval
+                    )
+                )
             }
         }
         return result.sorted { $0.nextDate < $1.nextDate }

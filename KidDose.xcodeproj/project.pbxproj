@@ -18,6 +18,8 @@
 		AA000031 /* CloudKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100031 /* CloudKitService.swift */; };
 		AA000040 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100040 /* HomeView.swift */; };
 		AA000041 /* MedicationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100041 /* MedicationCard.swift */; };
+		AA000042 /* ScheduledAlarmsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100042 /* ScheduledAlarmsView.swift */; };
+		AA000043 /* FullScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100043 /* FullScheduleView.swift */; };
 		AA000050 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100050 /* HistoryView.swift */; };
 		AA000060 /* ChildrenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100060 /* ChildrenView.swift */; };
 		AA000061 /* AddChildSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100061 /* AddChildSheet.swift */; };
@@ -38,6 +40,8 @@
 		AA100031 /* CloudKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitService.swift; sourceTree = "<group>"; };
 		AA100040 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		AA100041 /* MedicationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationCard.swift; sourceTree = "<group>"; };
+		AA100042 /* ScheduledAlarmsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledAlarmsView.swift; sourceTree = "<group>"; };
+		AA100043 /* FullScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScheduleView.swift; sourceTree = "<group>"; };
 		AA100050 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		AA100060 /* ChildrenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChildrenView.swift; sourceTree = "<group>"; };
 		AA100061 /* AddChildSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddChildSheet.swift; sourceTree = "<group>"; };
@@ -137,6 +141,8 @@
 			children = (
 				AA100040 /* HomeView.swift */,
 				AA100041 /* MedicationCard.swift */,
+				AA100042 /* ScheduledAlarmsView.swift */,
+				AA100043 /* FullScheduleView.swift */,
 			);
 			path = Home;
 			sourceTree = "<group>";
@@ -255,6 +261,8 @@
 				AA000031 /* CloudKitService.swift in Sources */,
 				AA000040 /* HomeView.swift in Sources */,
 				AA000041 /* MedicationCard.swift in Sources */,
+				AA000042 /* ScheduledAlarmsView.swift in Sources */,
+				AA000043 /* FullScheduleView.swift in Sources */,
 				AA000050 /* HistoryView.swift in Sources */,
 				AA000060 /* ChildrenView.swift in Sources */,
 				AA000061 /* AddChildSheet.swift in Sources */,
@@ -388,7 +396,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = KidDose/Resources/KidDose.debug.entitlements;
+				CODE_SIGN_ENTITLEMENTS = KidDose/Resources/KidDose.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
@@ -400,7 +408,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.christoffermattssonlangseth.kiddose;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG NO_CLOUDKIT $(inherited)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

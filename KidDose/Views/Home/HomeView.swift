@@ -7,9 +7,15 @@ struct HomeView: View {
 
     @State private var selectedChildID: PersistentIdentifier?
     @State private var showAlarms = false
+    @State private var showFullSchedule = false
+
+    private var resolvedSelectedChildID: PersistentIdentifier? {
+        if let selectedChildID { return selectedChildID }
+        return children.first?.persistentModelID
+    }
 
     var selectedChild: Child? {
-        guard let id = selectedChildID else { return children.first }
+        guard let id = resolvedSelectedChildID else { return nil }
         return children.first { $0.persistentModelID == id }
     }
 
@@ -33,7 +39,7 @@ struct HomeView: View {
                                     ForEach(children) { child in
                                         ChildChip(
                                             child: child,
-                                            isSelected: selectedChild?.persistentModelID == child.persistentModelID
+                                            isSelected: resolvedSelectedChildID == child.persistentModelID
                                         ) {
                                             selectedChildID = child.persistentModelID
                                         }
@@ -42,12 +48,15 @@ struct HomeView: View {
                                 .padding(.horizontal)
                             }
                         } else if children.count >= 2 {
-                            Picker("Child", selection: Binding(
-                                get: { selectedChild?.persistentModelID },
-                                set: { selectedChildID = $0 }
-                            )) {
+                            Picker(
+                                "Child",
+                                selection: Binding<PersistentIdentifier?>(
+                                    get: { selectedChildID },
+                                    set: { newValue in selectedChildID = newValue }
+                                )
+                            ) {
                                 ForEach(children) { child in
-                                    Text(child.name).tag(Optional(child.persistentModelID))
+                                    Text(child.name).tag(Optional<PersistentIdentifier>(child.persistentModelID))
                                 }
                             }
                             .pickerStyle(.segmented)
@@ -69,7 +78,9 @@ struct HomeView: View {
                             // ── Upcoming doses for this child ───────────
                             let upcoming = viewModel.upcomingDoses(for: [child])
                             if !upcoming.isEmpty {
-                                UpcomingSection(items: upcoming)
+                                UpcomingSection(items: upcoming) {
+                                    showFullSchedule = true
+                                }
                                     .padding(.horizontal)
                             }
                         }
@@ -92,16 +103,29 @@ struct HomeView: View {
                 ScheduledAlarmsView()
                     .presentationDetents([.medium, .large])
             }
-            .onAppear {
-                if selectedChildID == nil || !children.map(\.persistentModelID).contains(selectedChildID) {
-                    selectedChildID = children.first?.persistentModelID
+            .sheet(isPresented: $showFullSchedule) {
+                if let child = selectedChild {
+                    FullScheduleView(child: child)
+                        .presentationDetents([.large])
                 }
+            }
+            .onAppear {
+                validateSelectedChild()
             }
             .onChange(of: children.count) {
-                if !children.map(\.persistentModelID).contains(selectedChildID) {
-                    selectedChildID = children.first?.persistentModelID
-                }
+                validateSelectedChild()
             }
+        }
+    }
+
+    private func validateSelectedChild() {
+        guard let selectedChildID else {
+            self.selectedChildID = children.first?.persistentModelID
+            return
+        }
+
+        if !children.contains(where: { $0.persistentModelID == selectedChildID }) {
+            self.selectedChildID = children.first?.persistentModelID
         }
     }
 }
@@ -110,12 +134,20 @@ struct HomeView: View {
 
 struct UpcomingSection: View {
     let items: [ScheduledDose]
+    let onViewFullSchedule: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Upcoming Doses", systemImage: "calendar.badge.clock")
-                .font(.headline)
-                .foregroundStyle(.primary)
+            HStack(alignment: .firstTextBaseline) {
+                Label("Upcoming Doses", systemImage: "calendar.badge.clock")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Button("Full schedule") {
+                    onViewFullSchedule()
+                }
+                .font(.caption.weight(.semibold))
+            }
 
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in

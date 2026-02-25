@@ -20,14 +20,17 @@ A SwiftUI iOS app for tracking ibuprofen and paracetamol doses for multiple chil
 
 These steps cannot be automated and must be performed manually in Xcode.
 
-### Personal Team Device Install (Free Apple ID)
+### Signing Note
 
-If you are using a Personal Team (free Apple ID), this repo is now configured so:
+The current project configuration expects a paid Apple Developer team:
 
-- `Debug` uses `KidDose/Resources/KidDose.debug.entitlements` (no iCloud/push), so it can install on iPhone.
-- `Release` uses `KidDose/Resources/KidDose.entitlements` (iCloud + push), for paid Apple Developer accounts.
+- `Debug` uses `KidDose/Resources/KidDose.entitlements` (iCloud + push enabled).
+- `Release` uses `KidDose/Resources/KidDose.entitlements` (iCloud + push enabled).
 
-This means local dose tracking works on device, but family CloudKit sync is disabled on Personal Team builds.
+If you need a Personal Team/local-only build, switch Debug back to:
+
+- `CODE_SIGN_ENTITLEMENTS = KidDose/Resources/KidDose.debug.entitlements`
+- `SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG NO_CLOUDKIT $(inherited)`
 
 ### 1. Bundle Identifier
 
@@ -86,7 +89,7 @@ Critical Alerts require explicit approval from Apple.
 
 In **Target → Build Settings → Code Signing Entitlements**, use:
 
-- `Debug`: `KidDose/Resources/KidDose.debug.entitlements`
+- `Debug`: `KidDose/Resources/KidDose.entitlements`
 - `Release`: `KidDose/Resources/KidDose.entitlements`
 
 ### 6. CloudKit Schema Initialization
