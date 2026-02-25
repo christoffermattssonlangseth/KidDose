@@ -59,14 +59,26 @@ final class DoseViewModel {
     }
 
     @MainActor
+    func acceptCloudShareURL(
+        _ url: URL,
+        context: ModelContext?
+    ) async -> Bool {
+        await FamilyCloudSyncService.shared.acceptShare(url: url, context: context)
+    }
+
+    @MainActor
     func clearFamilySync() {
         FamilyCloudSyncService.shared.clearFamily()
     }
 
     @MainActor
     func syncFamilyCloud(context: ModelContext, includeUpload: Bool = false) async {
+        if !familySyncEnabled, familySyncAvailable {
+            _ = await FamilyCloudSyncService.shared.discoverAcceptedFamily(context: nil)
+        }
+
         guard familySyncEnabled else { return }
-        if includeUpload {
+        if includeUpload || familySyncOwner {
             await FamilyCloudSyncService.shared.uploadLocalData(context: context)
         }
         await FamilyCloudSyncService.shared.sync(context: context)
@@ -75,8 +87,18 @@ final class DoseViewModel {
     @MainActor
     func runManualFamilySync(context: ModelContext) async -> Bool {
         await refreshiCloudStatus()
-        guard familySyncAvailable, familySyncEnabled else { return false }
-        await FamilyCloudSyncService.shared.uploadLocalData(context: context)
+        guard familySyncAvailable else { return false }
+
+        // Participant devices may keep stale zone pointers after repeated test invites.
+        // Re-discover accepted shares before each manual pull.
+        if !familySyncOwner {
+            _ = await FamilyCloudSyncService.shared.discoverAcceptedFamily(context: nil)
+        }
+
+        guard familySyncEnabled else { return false }
+        if familySyncOwner {
+            await FamilyCloudSyncService.shared.uploadLocalData(context: context)
+        }
         await FamilyCloudSyncService.shared.sync(context: context)
         return FamilyCloudSyncService.shared.lastSyncErrorMessage == nil
     }

@@ -230,7 +230,9 @@ final class FamilyCloudSyncService {
 
             let share = CKShare(recordZoneID: zoneID)
             share[CKShare.SystemFieldKey.title] = "KidDose Family" as CKRecordValue
-            share.publicPermission = .none
+            // We share through a private invite URL, so participants can join via the link.
+            // `.none` blocks link-based acceptance and surfaces "no access" on recipient devices.
+            share.publicPermission = .readWrite
             _ = try await privateDB.modifyRecords(saving: [share], deleting: [])
 
             setActiveFamily(zoneID: zoneID, role: .owner, inviteURL: share.url)
@@ -254,19 +256,30 @@ final class FamilyCloudSyncService {
         }
 
         do {
-            let zones = try await container.sharedCloudDatabase.allRecordZones()
-            guard
-                let zone = zones
-                    .map(\.zoneID)
-                    .sorted(by: { $0.zoneName < $1.zoneName })
-                    .first(where: { $0.zoneName.hasPrefix(Constants.familyZonePrefix) })
-            else {
+            let sharedDB = container.sharedCloudDatabase
+            let zoneIDs = try await acceptedFamilyZoneIDs(in: sharedDB)
+            guard !zoneIDs.isEmpty else {
                 setStatus("No accepted secure family share found on this account.")
                 return false
             }
 
-            setActiveFamily(zoneID: zone, role: .participant, inviteURL: nil)
-            setStatus("Connected to secure family share.")
+            let selectedZone: CKRecordZone.ID
+            if
+                activeRole == .participant,
+                let currentZoneID = activeZoneID,
+                zoneIDs.contains(currentZoneID)
+            {
+                selectedZone = currentZoneID
+            } else {
+                selectedZone = await bestParticipantZone(from: zoneIDs, database: sharedDB)
+            }
+
+            setActiveFamily(zoneID: selectedZone, role: .participant, inviteURL: nil)
+            if zoneIDs.count > 1 {
+                setStatus("Connected to secure family share (\(selectedZone.zoneName)).")
+            } else {
+                setStatus("Connected to secure family share.")
+            }
             if let context {
                 await sync(context: context)
             }
@@ -295,6 +308,22 @@ final class FamilyCloudSyncService {
             return true
         } catch {
             setError("Failed to accept CloudKit share", error: error)
+            return false
+        }
+    }
+
+    @discardableResult
+    func acceptShare(url: URL, context: ModelContext? = nil) async -> Bool {
+        guard let container else {
+            setStatus("Cannot accept share because CloudKit is not configured.")
+            return false
+        }
+
+        do {
+            let metadata = try await fetchShareMetadata(container: container, url: url)
+            return await acceptShare(metadata: metadata, context: context)
+        } catch {
+            setError("Failed to resolve CloudKit share link", error: error)
             return false
         }
     }
@@ -333,6 +362,10 @@ final class FamilyCloudSyncService {
     }
 
     func sync(context: ModelContext) async {
+        await sync(context: context, allowParticipantZoneRecovery: true)
+    }
+
+    private func sync(context: ModelContext, allowParticipantZoneRecovery: Bool) async {
         guard let db = activeDatabase else {
             lastSyncErrorMessage = "Family sync is not configured for this build."
             setStatus("Sync skipped because CloudKit container is unavailable.")
@@ -355,7 +388,9 @@ final class FamilyCloudSyncService {
                 database: db,
                 zoneID: zoneID
             )
-            setStatus("Fetched \(childRecords.count) children and \(doseRecords.count) doses.")
+            setStatus(
+                "Fetched \(childRecords.count) children and \(doseRecords.count) doses from \(zoneID.zoneName)."
+            )
 
             let localChildren = (try? context.fetch(FetchDescriptor<Child>())) ?? []
             var childrenByRecordName: [String: Child] = [:]
@@ -465,9 +500,21 @@ final class FamilyCloudSyncService {
                 dosesByRecordName[recordName] = dose
             }
 
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                setError("Local save failed during sync", error: error)
+            }
         } catch {
             setError("Sync failed", error: error)
+            guard allowParticipantZoneRecovery else { return }
+            guard activeRole == .participant else { return }
+            guard let currentZoneID = activeZoneID else { return }
+
+            let recovered = await recoverParticipantZone(from: currentZoneID)
+            guard recovered else { return }
+
+            await sync(context: context, allowParticipantZoneRecovery: false)
         }
     }
 
@@ -581,27 +628,111 @@ final class FamilyCloudSyncService {
         zoneID: CKRecordZone.ID
     ) async throws -> [CKRecord] {
         var records: [CKRecord] = []
-        let query = CKQuery(recordType: recordType, predicate: NSPredicate(value: true))
-        var page = try await database.records(
-            matching: query,
-            inZoneWith: zoneID,
-            resultsLimit: Constants.maxQueryPageSize
-        )
-
+        var firstFailure: Error?
+        var changeToken: CKServerChangeToken? = nil
         while true {
-            for (_, result) in page.matchResults {
-                if case let .success(record) = result {
+            let page = try await database.recordZoneChanges(
+                inZoneWith: zoneID,
+                since: changeToken,
+                resultsLimit: Constants.maxQueryPageSize
+            )
+            for (_, result) in page.modificationResultsByID {
+                switch result {
+                case let .success(modification):
+                    let record = modification.record
+                    guard record.recordType == recordType else { continue }
                     records.append(record)
+                case let .failure(error):
+                    if firstFailure == nil {
+                        firstFailure = error
+                    }
                 }
             }
 
-            guard let cursor = page.queryCursor else { break }
-            page = try await database.records(
-                continuingMatchFrom: cursor,
-                resultsLimit: Constants.maxQueryPageSize
-            )
+            changeToken = page.changeToken
+            guard page.moreComing else { break }
+        }
+
+        if records.isEmpty, let firstFailure {
+            throw firstFailure
         }
         return records
+    }
+
+    private func acceptedFamilyZoneIDs(in database: CKDatabase) async throws -> [CKRecordZone.ID] {
+        let zones = try await database.allRecordZones()
+        return zones
+            .map(\.zoneID)
+            .filter { $0.zoneName.hasPrefix(Constants.familyZonePrefix) }
+            .sorted(by: { $0.zoneName < $1.zoneName })
+    }
+
+    private func bestParticipantZone(
+        from zoneIDs: [CKRecordZone.ID],
+        database: CKDatabase
+    ) async -> CKRecordZone.ID {
+        guard let first = zoneIDs.first else {
+            return CKRecordZone.ID(zoneName: Constants.familyZonePrefix + "unknown")
+        }
+        guard zoneIDs.count > 1 else { return first }
+
+        var selectedZone = first
+        var selectedScore = await zoneDataScore(zoneID: first, database: database)
+
+        for zoneID in zoneIDs.dropFirst() {
+            let score = await zoneDataScore(zoneID: zoneID, database: database)
+            if score > selectedScore {
+                selectedZone = zoneID
+                selectedScore = score
+                continue
+            }
+
+            if score == selectedScore, zoneID.zoneName > selectedZone.zoneName {
+                selectedZone = zoneID
+            }
+        }
+
+        return selectedZone
+    }
+
+    private func zoneDataScore(zoneID: CKRecordZone.ID, database: CKDatabase) async -> Int {
+        var score = 0
+        if let childCount = try? await fetchRecords(
+            recordType: Constants.childRecordType,
+            database: database,
+            zoneID: zoneID
+        ).count {
+            score += childCount * 1_000
+        }
+
+        if let doseCount = try? await fetchRecords(
+            recordType: Constants.doseRecordType,
+            database: database,
+            zoneID: zoneID
+        ).count {
+            score += doseCount
+        }
+        return score
+    }
+
+    private func recoverParticipantZone(from previousZoneID: CKRecordZone.ID) async -> Bool {
+        guard let container else { return false }
+
+        do {
+            let sharedDB = container.sharedCloudDatabase
+            let zoneIDs = try await acceptedFamilyZoneIDs(in: sharedDB)
+            guard !zoneIDs.isEmpty else { return false }
+
+            let candidate = await bestParticipantZone(from: zoneIDs, database: sharedDB)
+            guard candidate != previousZoneID else { return false }
+
+            setActiveFamily(zoneID: candidate, role: .participant, inviteURL: nil)
+            setStatus("Recovered secure family zone and retried sync.")
+            lastSyncErrorMessage = nil
+            return true
+        } catch {
+            return false
+        }
     }
 
     private var activeRole: FamilyRole? {
@@ -646,6 +777,31 @@ final class FamilyCloudSyncService {
         guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func fetchShareMetadata(
+        container: CKContainer,
+        url: URL
+    ) async throws -> CKShare.Metadata {
+        try await withCheckedThrowingContinuation { continuation in
+            container.fetchShareMetadata(with: url) { metadata, error in
+                if let metadata {
+                    continuation.resume(returning: metadata)
+                    return
+                }
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(
+                    throwing: NSError(
+                        domain: "KidDose.CloudKit",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Share metadata was unavailable."]
+                    )
+                )
+            }
+        }
     }
 
     private func setStatus(_ message: String) {

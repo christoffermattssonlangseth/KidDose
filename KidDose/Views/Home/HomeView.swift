@@ -22,7 +22,7 @@ struct HomeView: View {
     var body: some View {
             NavigationStack {
                 ScrollView {
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
 
                     // iCloud banner
                     if !viewModel.iCloudAvailable {
@@ -65,7 +65,7 @@ struct HomeView: View {
 
                         // ── Medication cards ────────────────────────────
                         if let child = selectedChild {
-                            VStack(spacing: 8) {
+                            VStack(spacing: 6) {
                                 ForEach(Medication.allCases, id: \.rawValue) { med in
                                     MedicationCard(medication: med, child: child)
                                         // Force re-creation (and State reset) when child changes
@@ -86,7 +86,7 @@ struct HomeView: View {
                         }
                     }
                 }
-                .padding(.vertical, 6)
+                .padding(.vertical, 4)
             }
             .navigationTitle("KidDose")
             .navigationBarTitleDisplayMode(.large)

@@ -116,6 +116,7 @@ private final class CloudShareBootstrapViewController: UIViewController {
         let rootRecord = CKRecord(recordType: "KidDoseRoot")
         let shareRecord = CKShare(rootRecord: rootRecord)
         shareRecord[CKShare.SystemFieldKey.title] = "KidDose Family" as CKRecordValue
+        shareRecord.publicPermission = .readWrite
 
         _ = try await container.privateCloudDatabase.modifyRecords(
             saving: [rootRecord, shareRecord],

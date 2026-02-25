@@ -267,6 +267,7 @@ private struct FamilySetupSheet: View {
 
     @State private var isWorking = false
     @State private var inviteURL: URL?
+    @State private var inviteLinkText = ""
     @State private var statusMessage: String?
     @State private var errorMessage: String?
 
@@ -309,6 +310,40 @@ private struct FamilySetupSheet: View {
                     Text("Ask your partner to send the CloudKit invite link. After accepting it, tap refresh below.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+
+                    TextField("Paste invite link", text: $inviteLinkText)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+
+                    Button("Accept Invite Link") {
+                        isWorking = true
+                        let trimmed = inviteLinkText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        Task {
+                            guard let url = URL(string: trimmed) else {
+                                errorMessage = "Invalid invite link."
+                                statusMessage = nil
+                                isWorking = false
+                                return
+                            }
+
+                            let accepted = await viewModel.acceptCloudShareURL(url, context: context)
+                            statusMessage = viewModel.familySyncLastStatusMessage
+                            if accepted {
+                                errorMessage = viewModel.familySyncLastErrorMessage
+                                inviteLinkText = ""
+                            } else {
+                                errorMessage = viewModel.familySyncLastErrorMessage
+                                    ?? "Could not accept invite link."
+                            }
+                            isWorking = false
+                        }
+                    }
+                    .disabled(
+                        isWorking
+                            || !viewModel.familySyncAvailable
+                            || inviteLinkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
 
                     Button("Refresh Accepted Invite") {
                         isWorking = true

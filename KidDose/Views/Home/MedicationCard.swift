@@ -42,15 +42,15 @@ struct MedicationCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
 
             // ── Header ──────────────────────────────────────────────
-            HStack {
+            HStack(spacing: 8) {
                 Image(systemName: medication.iconName)
-                    .font(.title2)
+                    .font(.title3)
                     .foregroundStyle(medication.color)
                 Text(medication.displayName)
-                    .font(.title3.bold())
+                    .font(.headline.weight(.semibold))
                 Spacer()
                 if isOverdue {
                     Label("Overdue", systemImage: "exclamationmark.triangle.fill")
@@ -67,7 +67,7 @@ struct MedicationCard: View {
 
             // ── Last dose ────────────────────────────────────────────
             if let last = lastDose {
-                HStack {
+                HStack(spacing: 8) {
                     Image(systemName: "clock")
                         .foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 2) {
@@ -80,7 +80,7 @@ struct MedicationCard: View {
                         }
                     }
                     Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
+                    VStack(alignment: .trailing, spacing: 1) {
                         Text("by")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -104,7 +104,7 @@ struct MedicationCard: View {
                 OverdueView(nextAllowedDate: nextAllowedDate)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Label("Dose note", systemImage: "note.text")
                         .font(.caption)
@@ -120,12 +120,12 @@ struct MedicationCard: View {
                     .font(.subheadline)
                     .foregroundStyle(doseNote == nil ? .secondary : .primary)
             }
-            .padding(10)
+            .padding(8)
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
 
             // ── Interval picker (ibuprofen only) ─────────────────────
             if medication.availableIntervals.count > 1 {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("Interval for next dose")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -171,8 +171,8 @@ struct MedicationCard: View {
             } label: {
                 Label("Give Dose", systemImage: "plus.circle.fill")
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .font(.headline)
+                    .padding(.vertical, 8)
+                    .font(.subheadline.weight(.semibold))
             }
             .buttonStyle(.borderedProminent)
             .tint(isOverdue ? .red : (canGive ? medication.color : .gray))
@@ -184,14 +184,14 @@ struct MedicationCard: View {
             } label: {
                 Label("Add Past Dose", systemImage: "clock.arrow.circlepath")
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 6)
                     .font(.subheadline.weight(.semibold))
             }
             .buttonStyle(.bordered)
         }
-        .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.07), radius: 6, y: 3)
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
         .sheet(isPresented: $showRetroactiveSheet) {
             RetroactiveDoseSheet(
                 medication: medication,
