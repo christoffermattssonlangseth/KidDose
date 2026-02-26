@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import CloudKit
 import LocalAuthentication
+import Combine
 
 @main
 struct KidDoseApp: App {
@@ -85,6 +86,7 @@ struct KidDoseApp: App {
 
                             // Pull family-shared records (if configured) on launch.
                             await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
+                            viewModel.refreshLiveActivity(context: modelContainer.mainContext)
                         }
                         .task {
                             while !Task.isCancelled {
@@ -106,6 +108,11 @@ struct KidDoseApp: App {
                     }
                 }
                 .environment(appLock)
+                .onReceive(NotificationCenter.default.publisher(for: .cloudKitDidReceiveRemoteNotification)) { _ in
+                    Task {
+                        await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
+                    }
+                }
             } else {
                 StartupFailureView(message: startupError)
             }
@@ -119,6 +126,7 @@ struct KidDoseApp: App {
                         _ = await appLock.requestUnlock()
                     }
                     await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
+                    viewModel.refreshLiveActivity(context: modelContainer.mainContext)
                 }
             case .inactive, .background:
                 appLock.lock()

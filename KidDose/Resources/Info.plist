@@ -26,6 +26,8 @@
 	<string>KidDose uses Face ID to lock your child medication history and timers on shared phones.</string>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>KidDose sends alerts when a medication interval is complete so you know it's safe to give the next dose — including at night when your child is unwell.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

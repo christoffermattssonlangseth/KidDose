@@ -15,7 +15,7 @@ struct ContentView: View {
 
             ChildrenView()
                 .tabItem {
-                    Label("Children", systemImage: "person.2.fill")
+                    Label("Settings", systemImage: "gearshape.fill")
                 }
         }
     }

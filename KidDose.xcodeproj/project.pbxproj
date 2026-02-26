@@ -13,9 +13,11 @@
 		AA000010 /* Child.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100010 /* Child.swift */; };
 		AA000011 /* DoseLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100011 /* DoseLog.swift */; };
 		AA000012 /* Medication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100012 /* Medication.swift */; };
+		BA000001 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
 		AA000020 /* DoseViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100020 /* DoseViewModel.swift */; };
 		AA000030 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100030 /* NotificationManager.swift */; };
 		AA000031 /* CloudKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100031 /* CloudKitService.swift */; };
+		BA000002 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100003 /* LiveActivityManager.swift */; };
 		AA000040 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100040 /* HomeView.swift */; };
 		AA000041 /* MedicationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100041 /* MedicationCard.swift */; };
 		AA000042 /* ScheduledAlarmsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100042 /* ScheduledAlarmsView.swift */; };
@@ -27,7 +29,35 @@
 			AA000070 /* iCloudBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100070 /* iCloudBanner.swift */; };
 			AA000071 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100071 /* ColorExtensions.swift */; };
 			AA000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA100090 /* Assets.xcassets */; };
+			BA000003 /* KidDoseWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100001 /* KidDoseWidgetsBundle.swift */; };
+			BA000004 /* KidDoseLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100004 /* KidDoseLiveActivityWidget.swift */; };
+			BA000005 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
+			BA000006 /* KidDoseLiveActivityExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = BAPROD001 /* KidDoseLiveActivityExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+			BACIP0001 /* PBXContainerItemProxy */ = {
+				isa = PBXContainerItemProxy;
+				containerPortal = AAPROJ001 /* Project object */;
+				proxyType = 1;
+				remoteGlobalIDString = BATGT0001;
+				remoteInfo = KidDoseLiveActivityExtension;
+			};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+			AABP0003 /* Embed App Extensions */ = {
+				isa = PBXCopyFilesBuildPhase;
+				buildActionMask = 2147483647;
+				dstPath = "";
+				dstSubfolderSpec = 13;
+				files = (
+					BA000006 /* KidDoseLiveActivityExtension.appex in Embed App Extensions */,
+				);
+				name = "Embed App Extensions";
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		AA100001 /* KidDoseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidDoseApp.swift; sourceTree = "<group>"; };
@@ -36,9 +66,11 @@
 		AA100010 /* Child.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Child.swift; sourceTree = "<group>"; };
 		AA100011 /* DoseLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseLog.swift; sourceTree = "<group>"; };
 		AA100012 /* Medication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Medication.swift; sourceTree = "<group>"; };
+		BA100002 /* KidDoseLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidDoseLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		AA100020 /* DoseViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseViewModel.swift; sourceTree = "<group>"; };
 		AA100030 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		AA100031 /* CloudKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitService.swift; sourceTree = "<group>"; };
+		BA100003 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
 		AA100040 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		AA100041 /* MedicationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedicationCard.swift; sourceTree = "<group>"; };
 		AA100042 /* ScheduledAlarmsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledAlarmsView.swift; sourceTree = "<group>"; };
@@ -53,11 +85,22 @@
 			AA100081 /* KidDose.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.entitlements; sourceTree = "<group>"; };
 			AA100082 /* KidDose.debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.debug.entitlements; sourceTree = "<group>"; };
 			AA100090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+			BA100001 /* KidDoseWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidDoseWidgetsBundle.swift; sourceTree = "<group>"; };
+			BA100004 /* KidDoseLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidDoseLiveActivityWidget.swift; sourceTree = "<group>"; };
+			BA100005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 			AAPROD001 /* KidDose.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KidDose.app; sourceTree = BUILT_PRODUCTS_DIR; };
+			BAPROD001 /* KidDoseLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KidDoseLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		AABP0001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BABP0001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -71,6 +114,7 @@
 			isa = PBXGroup;
 			children = (
 				AAGRP0001 /* KidDose */,
+				AAGRP0014 /* KidDoseWidgets */,
 				AAGRP00FF /* Products */,
 			);
 			sourceTree = "<group>";
@@ -107,6 +151,7 @@
 				AA100010 /* Child.swift */,
 				AA100011 /* DoseLog.swift */,
 				AA100012 /* Medication.swift */,
+				BA100002 /* KidDoseLiveActivityAttributes.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -124,8 +169,19 @@
 			children = (
 				AA100030 /* NotificationManager.swift */,
 				AA100031 /* CloudKitService.swift */,
+				BA100003 /* LiveActivityManager.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		AAGRP0014 /* KidDoseWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				BA100001 /* KidDoseWidgetsBundle.swift */,
+				BA100004 /* KidDoseLiveActivityWidget.swift */,
+				BA100005 /* Info.plist */,
+			);
+			path = KidDoseWidgets;
 			sourceTree = "<group>";
 		};
 			AAGRP0006 /* Resources */ = {
@@ -181,6 +237,7 @@
 			isa = PBXGroup;
 			children = (
 				AAPROD001 /* KidDose.app */,
+				BAPROD001 /* KidDoseLiveActivityExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -194,16 +251,35 @@
 			buildPhases = (
 				AABP0000 /* Sources */,
 				AABP0001 /* Frameworks */,
+				AABP0003 /* Embed App Extensions */,
 				AABP0002 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BATD0001 /* PBXTargetDependency */,
 			);
 			name = KidDose;
 			productName = KidDose;
 			productReference = AAPROD001 /* KidDose.app */;
 			productType = "com.apple.product-type.application";
+		};
+		BATGT0001 /* KidDoseLiveActivityExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AACFL0002 /* Build configuration list for PBXNativeTarget "KidDoseLiveActivityExtension" */;
+			buildPhases = (
+				BABP0000 /* Sources */,
+				BABP0001 /* Frameworks */,
+				BABP0002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KidDoseLiveActivityExtension;
+			productName = KidDoseLiveActivityExtension;
+			productReference = BAPROD001 /* KidDoseLiveActivityExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -234,6 +310,7 @@
 			projectRoot = "";
 			targets = (
 				AATGT0001 /* KidDose */,
+				BATGT0001 /* KidDoseLiveActivityExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -244,6 +321,13 @@
 				buildActionMask = 2147483647;
 				files = (
 					AA000090 /* Assets.xcassets in Resources */,
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+			BABP0002 /* Resources */ = {
+				isa = PBXResourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};
@@ -260,9 +344,11 @@
 				AA000010 /* Child.swift in Sources */,
 				AA000011 /* DoseLog.swift in Sources */,
 				AA000012 /* Medication.swift in Sources */,
+				BA000001 /* KidDoseLiveActivityAttributes.swift in Sources */,
 				AA000020 /* DoseViewModel.swift in Sources */,
 				AA000030 /* NotificationManager.swift in Sources */,
 				AA000031 /* CloudKitService.swift in Sources */,
+				BA000002 /* LiveActivityManager.swift in Sources */,
 				AA000040 /* HomeView.swift in Sources */,
 				AA000041 /* MedicationCard.swift in Sources */,
 				AA000042 /* ScheduledAlarmsView.swift in Sources */,
@@ -276,7 +362,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BABP0000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA000003 /* KidDoseWidgetsBundle.swift in Sources */,
+				BA000004 /* KidDoseLiveActivityWidget.swift in Sources */,
+				BA000005 /* KidDoseLiveActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BATD0001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BATGT0001 /* KidDoseLiveActivityExtension */;
+			targetProxy = BACIP0001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		AAXBC0001 /* Debug */ = {
@@ -444,6 +548,54 @@
 			};
 			name = Release;
 		};
+		BAXBC0005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7R6QL53THM;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidDoseWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.christoffermattssonlangseth.kiddose.liveactivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		BAXBC0006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7R6QL53THM;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidDoseWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.christoffermattssonlangseth.kiddose.liveactivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -461,6 +613,15 @@
 			buildConfigurations = (
 				AAXBC0003 /* Debug */,
 				AAXBC0004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AACFL0002 /* Build configuration list for PBXNativeTarget "KidDoseLiveActivityExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BAXBC0005 /* Debug */,
+				BAXBC0006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
