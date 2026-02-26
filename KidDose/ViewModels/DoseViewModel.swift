@@ -107,7 +107,14 @@ final class DoseViewModel {
     @MainActor
     func runManualFamilySync(context: ModelContext) async -> Bool {
         await refreshiCloudStatus()
-        guard familySyncAvailable else { return false }
+        guard familySyncAvailable else {
+            FamilyCloudSyncService.shared.noteError(
+                iCloudAvailable
+                    ? "CloudKit is not configured for this build."
+                    : "iCloud is not available. Open Settings → [Your Name] and sign in to iCloud."
+            )
+            return false
+        }
 
         // Participant devices may keep stale zone pointers after repeated test invites.
         // Re-discover accepted shares before each manual pull.

@@ -55,9 +55,10 @@ final class CloudKitService {
         guard let container else { return false }
         do {
             let status = try await container.accountStatus()
-            guard status == .available else { return false }
-            _ = try await container.userRecordID()
-            return true
+            // accountStatus() is a local check against the device's iCloud sign-in state
+            // and does not require a network round-trip, so it won't produce false negatives
+            // on a slow connection the way userRecordID() did.
+            return status == .available
         } catch {
             return false
         }
@@ -341,6 +342,13 @@ final class FamilyCloudSyncService {
         defaults.removeObject(forKey: Constants.roleDefaultsKey)
         defaults.removeObject(forKey: Constants.inviteURLDefaultsKey)
         setStatus("Family sync has been disconnected on this device.")
+    }
+
+    /// Lets callers (e.g. DoseViewModel) surface a descriptive error before an early return,
+    /// so the UI shows something meaningful instead of a generic fallback message.
+    func noteError(_ message: String) {
+        lastSyncErrorMessage = message
+        print("[FamilyCloudSync] \(message)")
     }
 
     func uploadLocalData(context: ModelContext) async {
