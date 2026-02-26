@@ -120,21 +120,33 @@ struct MedicationCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            if let visibleDoseNote {
-                HStack(spacing: 6) {
-                    Image(systemName: "note.text")
-                        .font(.caption)
+            Button {
+                showDoseNoteSheet = true
+            } label: {
+                if let visibleDoseNote {
+                    HStack(spacing: 6) {
+                        Image(systemName: "note.text")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(visibleDoseNote)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                        Spacer(minLength: 8)
+                    }
+                    .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
+                    .padding(.vertical, KidDoseLayout.compactVerticalPadding)
+                    .kidDoseSubtleSurface()
+                } else {
+                    Label("Add note", systemImage: "plus")
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
-                    Text(visibleDoseNote)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                    Spacer(minLength: 8)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color(.secondarySystemBackground), in: Capsule())
                 }
-                .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
-                .padding(.vertical, KidDoseLayout.compactVerticalPadding)
-                .kidDoseSubtleSurface()
             }
+            .buttonStyle(.plain)
 
             if let sessionEndedAt {
                 HStack(spacing: 6) {
@@ -177,21 +189,6 @@ struct MedicationCard: View {
 
             DisclosureGroup(isExpanded: $showAdvancedOptions) {
                 VStack(alignment: .leading, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Label(visibleDoseNote == nil ? "Dose note" : "Edit dose note", systemImage: "note.text")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Button(doseNote == nil ? "Add" : "Edit") {
-                                showDoseNoteSheet = true
-                            }
-                            .font(.caption.weight(.semibold))
-                        }
-                    }
-                    .padding(8)
-                    .kidDoseSubtleSurface()
-
                     if medication.availableIntervals.count > 1 {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Interval for next dose")
@@ -229,12 +226,10 @@ struct MedicationCard: View {
                         showRetroactiveSheet = true
                     } label: {
                         Label("Add Past Dose", systemImage: "clock.arrow.circlepath")
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                    .buttonStyle(.plain)
 
                     if lastDose != nil {
                         Button {
