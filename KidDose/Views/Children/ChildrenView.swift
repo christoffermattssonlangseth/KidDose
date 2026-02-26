@@ -21,6 +21,14 @@ struct ChildrenView: View {
     @State private var manualSyncError: String?
     @State private var isLiveActivityRefreshing = false
 
+    private var visibleChildren: [Child] {
+        viewModel.visibleChildrenForCurrentFamily(children)
+    }
+
+    private var isWaitingForFamilyChildren: Bool {
+        viewModel.familySyncEnabled && !viewModel.familySyncOwner && visibleChildren.isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -29,15 +37,19 @@ struct ChildrenView: View {
                 }
 
                 Section {
-                    if children.isEmpty {
+                    if visibleChildren.isEmpty {
                         ContentUnavailableView(
-                            "No children",
+                            isWaitingForFamilyChildren ? "Waiting for shared children" : "No children",
                             systemImage: "person.2",
-                            description: Text("Add your first child profile to start tracking doses.")
+                            description: Text(
+                                isWaitingForFamilyChildren
+                                    ? "Family sharing is connected. Run Sync Now to fetch shared data."
+                                    : "Add your first child profile to start tracking doses."
+                            )
                         )
                         .listRowBackground(Color.clear)
                     } else {
-                        ForEach(children) { child in
+                        ForEach(visibleChildren) { child in
                             ChildRowView(child: child)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
                                 .listRowSeparator(.hidden)
@@ -252,8 +264,37 @@ struct ChildrenView: View {
                 Button {
                     Task {
                         isManualSyncInProgress = true
-                        let success = await viewModel.runManualFamilySync(context: context)
+                        manualSyncStatus = nil
+                        manualSyncError = nil
+                        let syncTask = Task {
+                            await viewModel.runManualFamilySync(context: context)
+                        }
+                        let immediateResult = await waitForManualSyncResult(
+                            from: syncTask,
+                            timeoutSeconds: 25
+                        )
+
+                        if let success = immediateResult {
+                            isManualSyncInProgress = false
+                            if success {
+                                lastManualSyncAt = .now
+                                manualSyncStatus = viewModel.familySyncLastStatusMessage ?? "Sync completed."
+                                manualSyncError = viewModel.familySyncLastErrorMessage
+                            } else {
+                                manualSyncStatus = viewModel.familySyncLastStatusMessage
+                                manualSyncError = viewModel.familySyncLastErrorMessage
+                                    ?? viewModel.familySyncLastStatusMessage
+                                    ?? "Sync unavailable. Check iCloud sign-in and family setup."
+                            }
+                            return
+                        }
+
+                        // Soft timeout: keep the sync task running in background, and update UI now.
                         isManualSyncInProgress = false
+                        manualSyncStatus = "Sync is taking longer than usual. It will finish in the background."
+                        manualSyncError = nil
+
+                        let success = await syncTask.value
                         if success {
                             lastManualSyncAt = .now
                             manualSyncStatus = viewModel.familySyncLastStatusMessage ?? "Sync completed."
@@ -261,6 +302,7 @@ struct ChildrenView: View {
                         } else {
                             manualSyncStatus = viewModel.familySyncLastStatusMessage
                             manualSyncError = viewModel.familySyncLastErrorMessage
+                                ?? viewModel.familySyncLastStatusMessage
                                 ?? "Sync unavailable. Check iCloud sign-in and family setup."
                         }
                     }
@@ -424,8 +466,28 @@ struct ChildrenView: View {
 
     private func confirmDelete(at offsets: IndexSet) {
         if let index = offsets.first {
-            childToDelete = children[index]
+            guard visibleChildren.indices.contains(index) else { return }
+            childToDelete = visibleChildren[index]
             showDeleteConfirm = true
+        }
+    }
+
+    private func waitForManualSyncResult(
+        from syncTask: Task<Bool, Never>,
+        timeoutSeconds: Double = 25
+    ) async -> Bool? {
+        await withTaskGroup(of: Bool?.self) { group in
+            group.addTask {
+                await syncTask.value
+            }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(timeoutSeconds))
+                return nil
+            }
+
+            let result = await group.next() ?? nil
+            group.cancelAll()
+            return result
         }
     }
 }

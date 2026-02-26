@@ -17,15 +17,31 @@ struct HistoryView: View {
     @State private var exportErrorMessage: String?
 
     // MARK: Computed
+    private var visibleChildren: [Child] {
+        viewModel.visibleChildrenForCurrentFamily(children)
+    }
+
+    private var visibleChildIDs: Set<PersistentIdentifier> {
+        Set(visibleChildren.map(\.persistentModelID))
+    }
 
     private var filteredDoses: [DoseLog] {
-        guard let id = selectedChildID else { return allDoses }
-        return allDoses.filter { $0.child?.persistentModelID == id }
+        if let id = selectedChildID {
+            return allDoses.filter { $0.child?.persistentModelID == id }
+        }
+
+        // When participant devices have legacy local-only children, keep History focused
+        // on shared family records to avoid misleading stale timelines.
+        guard visibleChildren.count != children.count else { return allDoses }
+        return allDoses.filter { dose in
+            guard let childID = dose.child?.persistentModelID else { return false }
+            return visibleChildIDs.contains(childID)
+        }
     }
 
     private var filteredChildren: [Child] {
-        guard let id = selectedChildID else { return Array(children) }
-        return children.filter { $0.persistentModelID == id }
+        guard let id = selectedChildID else { return Array(visibleChildren) }
+        return visibleChildren.filter { $0.persistentModelID == id }
     }
 
     private var statsMap: [String: Int] {
@@ -76,7 +92,7 @@ struct HistoryView: View {
                                 color: .accentColor
                             ) { selectedChildID = nil }
 
-                            ForEach(children) { child in
+                            ForEach(visibleChildren) { child in
                                 FilterChip(
                                     label: child.name,
                                     isSelected: selectedChildID == child.persistentModelID,

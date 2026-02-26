@@ -44,6 +44,11 @@ final class DoseViewModel {
     var liveActivityDisplayMode: LiveActivityDisplayMode = LiveActivityManager.shared.displayMode
     var liveActivityDueSoonThreshold: LiveActivityDueSoonThreshold = LiveActivityManager.shared.dueSoonThreshold
 
+    func visibleChildrenForCurrentFamily(_ children: [Child]) -> [Child] {
+        guard familySyncEnabled, !familySyncOwner else { return children }
+        return children.filter { $0.cloudRecordName != nil }
+    }
+
     @MainActor
     func refreshiCloudStatus() async {
         iCloudAvailable = await CloudKitService.shared.checkiCloudStatus()
@@ -106,6 +111,9 @@ final class DoseViewModel {
 
     @MainActor
     func runManualFamilySync(context: ModelContext) async -> Bool {
+        guard FamilyCloudSyncService.shared.isConfigured else { return false }
+
+        // Refresh for UI status, but do not hard-stop manual sync on transient account-state checks.
         await refreshiCloudStatus()
         guard familySyncAvailable else {
             FamilyCloudSyncService.shared.noteError(
@@ -116,9 +124,13 @@ final class DoseViewModel {
             return false
         }
 
+        if !familySyncEnabled {
+            _ = await FamilyCloudSyncService.shared.discoverAcceptedFamily(context: nil)
+        }
+
         // Participant devices may keep stale zone pointers after repeated test invites.
         // Re-discover accepted shares before each manual pull.
-        if !familySyncOwner {
+        if familySyncEnabled, !familySyncOwner {
             _ = await FamilyCloudSyncService.shared.discoverAcceptedFamily(context: nil)
         }
 

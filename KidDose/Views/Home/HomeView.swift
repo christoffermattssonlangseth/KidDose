@@ -11,14 +11,22 @@ struct HomeView: View {
     @State private var showFullSchedule = false
     @State private var showStartNewCycleConfirm = false
 
+    private var visibleChildren: [Child] {
+        viewModel.visibleChildrenForCurrentFamily(children)
+    }
+
+    private var isWaitingForFamilyChildren: Bool {
+        viewModel.familySyncEnabled && !viewModel.familySyncOwner && visibleChildren.isEmpty
+    }
+
     private var resolvedSelectedChildID: PersistentIdentifier? {
         if let selectedChildID { return selectedChildID }
-        return children.first?.persistentModelID
+        return visibleChildren.first?.persistentModelID
     }
 
     var selectedChild: Child? {
         guard let id = resolvedSelectedChildID else { return nil }
-        return children.first { $0.persistentModelID == id }
+        return visibleChildren.first { $0.persistentModelID == id }
     }
 
     var body: some View {
@@ -31,14 +39,14 @@ struct HomeView: View {
                         iCloudBanner()
                     }
 
-                    if children.isEmpty {
-                        EmptyStateView()
+                    if visibleChildren.isEmpty {
+                        EmptyStateView(isWaitingForFamilyChildren: isWaitingForFamilyChildren)
                     } else {
                         // ── Child selector ──────────────────────────────
-                        if children.count >= 4 {
+                        if visibleChildren.count >= 4 {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
-                                    ForEach(children) { child in
+                                    ForEach(visibleChildren) { child in
                                         ChildChip(
                                             child: child,
                                             isSelected: resolvedSelectedChildID == child.persistentModelID
@@ -51,7 +59,7 @@ struct HomeView: View {
                                 }
                                 .padding(.horizontal)
                             }
-                        } else if children.count >= 2 {
+                        } else if visibleChildren.count >= 2 {
                             Picker(
                                 "Child",
                                 selection: Binding<PersistentIdentifier?>(
@@ -63,7 +71,7 @@ struct HomeView: View {
                                     }
                                 )
                             ) {
-                                ForEach(children) { child in
+                                ForEach(visibleChildren) { child in
                                     Text(child.name).tag(Optional<PersistentIdentifier>(child.persistentModelID))
                                 }
                             }
@@ -159,12 +167,12 @@ struct HomeView: View {
 
     private func validateSelectedChild() {
         guard let selectedChildID else {
-            self.selectedChildID = children.first?.persistentModelID
+            self.selectedChildID = visibleChildren.first?.persistentModelID
             return
         }
 
-        if !children.contains(where: { $0.persistentModelID == selectedChildID }) {
-            self.selectedChildID = children.first?.persistentModelID
+        if !visibleChildren.contains(where: { $0.persistentModelID == selectedChildID }) {
+            self.selectedChildID = visibleChildren.first?.persistentModelID
         }
     }
 }
@@ -314,14 +322,20 @@ private struct ChildChip: View {
 // MARK: - Empty State
 
 private struct EmptyStateView: View {
+    let isWaitingForFamilyChildren: Bool
+
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.2.fill")
                 .font(.system(size: 60))
                 .foregroundStyle(.secondary)
-            Text("No children added yet")
+            Text(isWaitingForFamilyChildren ? "Waiting for family data" : "No children added yet")
                 .font(.title3.bold())
-            Text("Add a child in the Children tab to start tracking doses.")
+            Text(
+                isWaitingForFamilyChildren
+                    ? "Family sharing is connected. Pull to sync from the Settings tab, then this screen updates automatically."
+                    : "Add a child in the Settings tab to start tracking doses."
+            )
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

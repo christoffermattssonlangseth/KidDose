@@ -175,7 +175,13 @@ final class FamilyCloudSyncService {
         static let zoneOwnerDefaultsKey = "KidDose.family.zoneOwnerName"
         static let roleDefaultsKey = "KidDose.family.role"
         static let inviteURLDefaultsKey = "KidDose.family.inviteURL"
+        static let zoneTokenDefaultsPrefix = "KidDose.family.zoneToken."
         static let maxQueryPageSize = 400
+    }
+
+    private struct ZoneChanges {
+        var modifiedRecords: [CKRecord]
+        var deletedRecordIDs: [CKRecord.ID]
     }
 
     private enum FamilyRole: String {
@@ -341,6 +347,7 @@ final class FamilyCloudSyncService {
         defaults.removeObject(forKey: Constants.zoneOwnerDefaultsKey)
         defaults.removeObject(forKey: Constants.roleDefaultsKey)
         defaults.removeObject(forKey: Constants.inviteURLDefaultsKey)
+        clearAllZoneTokens()
         setStatus("Family sync has been disconnected on this device.")
     }
 
@@ -393,12 +400,19 @@ final class FamilyCloudSyncService {
         lastSyncErrorMessage = nil
 
         do {
-            let (childRecords, doseRecords, deletedIDs) = try await fetchAllZoneRecords(
+            let zoneChanges = try await fetchZoneChanges(
                 database: db,
                 zoneID: zoneID
             )
+            let childRecords = zoneChanges.modifiedRecords.filter {
+                $0.recordType == Constants.childRecordType
+            }
+            let doseRecords = zoneChanges.modifiedRecords.filter {
+                $0.recordType == Constants.doseRecordType
+            }
+            let deletedRecordNames = Set(zoneChanges.deletedRecordIDs.map(\.recordName))
             setStatus(
-                "Fetched \(childRecords.count) children and \(doseRecords.count) doses from \(zoneID.zoneName)."
+                "Synced \(childRecords.count) child changes, \(doseRecords.count) dose changes, and \(deletedRecordNames.count) deletions from \(zoneID.zoneName)."
             )
 
             let localChildren = (try? context.fetch(FetchDescriptor<Child>())) ?? []
@@ -521,13 +535,17 @@ final class FamilyCloudSyncService {
                 dosesByRecordName[recordName] = dose
             }
 
-            // Apply remote deletions so records removed on one device disappear on the other.
-            if !deletedIDs.isEmpty {
-                let deletedNames = Set(deletedIDs.map(\.recordName))
-                for (name, dose) in dosesByRecordName where deletedNames.contains(name) {
+            // Apply explicit CloudKit deletions so both devices converge after deletes.
+            if !deletedRecordNames.isEmpty {
+                for dose in localDoses {
+                    guard let recordName = dose.cloudRecordName else { continue }
+                    guard deletedRecordNames.contains(recordName) else { continue }
                     context.delete(dose)
                 }
-                for (name, child) in childrenByRecordName where deletedNames.contains(name) {
+
+                for child in localChildren {
+                    guard let recordName = child.cloudRecordName else { continue }
+                    guard deletedRecordNames.contains(recordName) else { continue }
                     context.delete(child)
                 }
             }
@@ -660,42 +678,61 @@ final class FamilyCloudSyncService {
         }
     }
 
-    /// Fetches ALL changes in a zone in a single pass, returning children, doses, and deleted IDs.
-    /// Replaces the previous two-call pattern (one call per record type) to halve CloudKit reads.
-    private func fetchAllZoneRecords(
+    private func fetchZoneChanges(
         database: CKDatabase,
-        zoneID: CKRecordZone.ID
-    ) async throws -> (children: [CKRecord], doses: [CKRecord], deletedIDs: [CKRecord.ID]) {
-        var children: [CKRecord] = []
-        var doses: [CKRecord] = []
-        var deletedIDs: [CKRecord.ID] = []
-        var changeToken: CKServerChangeToken? = nil
-        while true {
-            let page = try await database.recordZoneChanges(
-                inZoneWith: zoneID,
-                since: changeToken,
-                resultsLimit: Constants.maxQueryPageSize
-            )
-            for (_, result) in page.modificationResultsByID {
-                if case let .success(modification) = result {
-                    let record = modification.record
-                    if record.recordType == Constants.childRecordType {
-                        children.append(record)
-                    } else if record.recordType == Constants.doseRecordType {
-                        doses.append(record)
+        zoneID: CKRecordZone.ID,
+        allowTokenReset: Bool = true
+    ) async throws -> ZoneChanges {
+        var changes = ZoneChanges(modifiedRecords: [], deletedRecordIDs: [])
+        var firstFailure: Error?
+        var changeToken = loadZoneToken(for: zoneID)
+
+        do {
+            while true {
+                let page = try await database.recordZoneChanges(
+                    inZoneWith: zoneID,
+                    since: changeToken,
+                    resultsLimit: Constants.maxQueryPageSize
+                )
+
+                for (_, result) in page.modificationResultsByID {
+                    switch result {
+                    case let .success(modification):
+                        changes.modifiedRecords.append(modification.record)
+                    case let .failure(error):
+                        if firstFailure == nil { firstFailure = error }
                     }
                 }
+
+                for deletion in page.deletions {
+                    changes.deletedRecordIDs.append(deletion.recordID)
+                }
+
+                changeToken = page.changeToken
+                guard !page.moreComing else { continue }
+                break
             }
-            for (recordID, _) in page.deletionsByID {
-                deletedIDs.append(recordID)
+        } catch {
+            if allowTokenReset, isTokenExpired(error) {
+                clearZoneToken(for: zoneID)
+                return try await fetchZoneChanges(
+                    database: database,
+                    zoneID: zoneID,
+                    allowTokenReset: false
+                )
             }
-            changeToken = page.changeToken
-            guard page.moreComing else { break }
+            throw error
         }
-        return (children, doses, deletedIDs)
+
+        saveZoneToken(changeToken, for: zoneID)
+
+        if changes.modifiedRecords.isEmpty, changes.deletedRecordIDs.isEmpty, let firstFailure {
+            throw firstFailure
+        }
+        return changes
     }
 
-    private func fetchRecords(
+    private func fetchRecordsSnapshot(
         recordType: String,
         database: CKDatabase,
         zoneID: CKRecordZone.ID
@@ -703,6 +740,7 @@ final class FamilyCloudSyncService {
         var records: [CKRecord] = []
         var firstFailure: Error?
         var changeToken: CKServerChangeToken? = nil
+
         while true {
             let page = try await database.recordZoneChanges(
                 inZoneWith: zoneID,
@@ -716,14 +754,13 @@ final class FamilyCloudSyncService {
                     guard record.recordType == recordType else { continue }
                     records.append(record)
                 case let .failure(error):
-                    if firstFailure == nil {
-                        firstFailure = error
-                    }
+                    if firstFailure == nil { firstFailure = error }
                 }
             }
 
             changeToken = page.changeToken
-            guard page.moreComing else { break }
+            guard !page.moreComing else { continue }
+            break
         }
 
         if records.isEmpty, let firstFailure {
@@ -770,7 +807,7 @@ final class FamilyCloudSyncService {
 
     private func zoneDataScore(zoneID: CKRecordZone.ID, database: CKDatabase) async -> Int {
         var score = 0
-        if let childCount = try? await fetchRecords(
+        if let childCount = try? await fetchRecordsSnapshot(
             recordType: Constants.childRecordType,
             database: database,
             zoneID: zoneID
@@ -778,7 +815,7 @@ final class FamilyCloudSyncService {
             score += childCount * 1_000
         }
 
-        if let doseCount = try? await fetchRecords(
+        if let doseCount = try? await fetchRecordsSnapshot(
             recordType: Constants.doseRecordType,
             database: database,
             zoneID: zoneID
@@ -835,7 +872,49 @@ final class FamilyCloudSyncService {
         }
     }
 
+    private func zoneTokenKey(for zoneID: CKRecordZone.ID) -> String {
+        "\(Constants.zoneTokenDefaultsPrefix)\(zoneID.ownerName)|\(zoneID.zoneName)"
+    }
+
+    private func loadZoneToken(for zoneID: CKRecordZone.ID) -> CKServerChangeToken? {
+        let key = zoneTokenKey(for: zoneID)
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: data)
+    }
+
+    private func saveZoneToken(_ token: CKServerChangeToken?, for zoneID: CKRecordZone.ID) {
+        let key = zoneTokenKey(for: zoneID)
+        guard let token else {
+            defaults.removeObject(forKey: key)
+            return
+        }
+
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) else {
+            defaults.removeObject(forKey: key)
+            return
+        }
+        defaults.set(data, forKey: key)
+    }
+
+    private func clearZoneToken(for zoneID: CKRecordZone.ID) {
+        defaults.removeObject(forKey: zoneTokenKey(for: zoneID))
+    }
+
+    private func clearAllZoneTokens() {
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(Constants.zoneTokenDefaultsPrefix) {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    private func isTokenExpired(_ error: Error) -> Bool {
+        guard let ckError = error as? CKError else { return false }
+        return ckError.code == .changeTokenExpired || ckError.code == .zoneNotFound
+    }
+
     private func setActiveFamily(zoneID: CKRecordZone.ID, role: FamilyRole, inviteURL: URL?) {
+        if activeZoneID != zoneID {
+            clearZoneToken(for: zoneID)
+        }
         defaults.set(zoneID.zoneName, forKey: Constants.zoneNameDefaultsKey)
         defaults.set(zoneID.ownerName, forKey: Constants.zoneOwnerDefaultsKey)
         defaults.set(role.rawValue, forKey: Constants.roleDefaultsKey)
