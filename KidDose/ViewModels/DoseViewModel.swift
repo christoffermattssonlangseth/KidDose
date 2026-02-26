@@ -122,7 +122,12 @@ final class DoseViewModel {
             _ = await FamilyCloudSyncService.shared.discoverAcceptedFamily(context: nil)
         }
 
-        guard familySyncEnabled else { return false }
+        guard familySyncEnabled else {
+            FamilyCloudSyncService.shared.noteError(
+                "Family sync is not configured on this device. Create a family or accept an invite above."
+            )
+            return false
+        }
         if familySyncOwner {
             await FamilyCloudSyncService.shared.uploadLocalData(context: context)
         }
