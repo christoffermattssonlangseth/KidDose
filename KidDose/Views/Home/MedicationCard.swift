@@ -30,6 +30,17 @@ struct MedicationCard: View {
     var nextAllowedDate: Date? { viewModel.nextAllowedDate(for: medication, child: child) }
     var isOverdue: Bool { viewModel.overdueDuration(for: medication, child: child) != nil }
     var lastDose: DoseLog? { viewModel.latestDoseInCurrentCycle(for: medication, child: child) }
+
+    var cardAccentColor: Color {
+        if isOverdue { return .red }
+        if canGive   { return .green }
+        return medication.color
+    }
+    var cardShadowColor: Color {
+        if isOverdue { return .red.opacity(0.22) }
+        if canGive   { return .green.opacity(0.22) }
+        return .black.opacity(0.06)
+    }
     var doseNote: String? { child.doseNote(for: medication) }
     var sessionEndedAt: Date? { viewModel.sessionEndedAt(for: medication, child: child) }
     var isSessionEnded: Bool { viewModel.isMedicationSessionEnded(for: medication, child: child) }
@@ -236,7 +247,13 @@ struct MedicationCard: View {
         }
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(cardAccentColor)
+                .frame(width: 4)
+                .clipShape(.rect(topLeadingRadius: 14, bottomLeadingRadius: 14))
+        }
+        .shadow(color: cardShadowColor, radius: 6, y: 2)
         .sheet(isPresented: $showRetroactiveSheet) {
             RetroactiveDoseSheet(
                 medication: medication,
@@ -437,22 +454,22 @@ struct CountdownView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = targetDate.timeIntervalSince(context.date)
             if remaining > 0 {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "timer")
-                            .foregroundStyle(medication.color)
-                        Text(formattedCountdown(remaining))
-                            .font(.subheadline.monospacedDigit())
-                            .foregroundStyle(medication.color)
+                VStack(spacing: 4) {
+                    Text(formattedCountdown(remaining))
+                        .font(.system(.title2, design: .monospaced).weight(.semibold))
+                        .foregroundStyle(medication.color)
+                    HStack(spacing: 4) {
                         Text("until next dose")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        Text("·")
+                            .foregroundStyle(.tertiary)
+                        Text("Ready at \(formattedTime(targetDate))")
                     }
-                    Text("Ready at \(formattedTime(targetDate))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 22)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(medication.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
             }
         }
     }
