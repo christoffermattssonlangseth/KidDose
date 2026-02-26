@@ -5,7 +5,7 @@ struct ContentView: View {
         TabView {
             HomeView()
                 .tabItem {
-                    Label("Home", systemImage: "house.fill")
+                    Label("Home", systemImage: "pills.fill")
                 }
 
             HistoryView()
@@ -15,7 +15,7 @@ struct ContentView: View {
 
             ChildrenView()
                 .tabItem {
-                    Label("Settings", systemImage: "gearshape.fill")
+                    Label("Settings", systemImage: "figure.2.and.child.holdinghands")
                 }
         }
     }

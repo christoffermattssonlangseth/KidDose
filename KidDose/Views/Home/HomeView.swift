@@ -43,7 +43,9 @@ struct HomeView: View {
                                             child: child,
                                             isSelected: resolvedSelectedChildID == child.persistentModelID
                                         ) {
-                                            selectedChildID = child.persistentModelID
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                selectedChildID = child.persistentModelID
+                                            }
                                         }
                                     }
                                 }
@@ -54,7 +56,11 @@ struct HomeView: View {
                                 "Child",
                                 selection: Binding<PersistentIdentifier?>(
                                     get: { selectedChildID },
-                                    set: { newValue in selectedChildID = newValue }
+                                    set: { newValue in
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            selectedChildID = newValue
+                                        }
+                                    }
                                 )
                             ) {
                                 ForEach(children) { child in
@@ -76,17 +82,19 @@ struct HomeView: View {
                                     showFullSchedule = true
                                 }
                                 .padding(.horizontal)
+                                .transition(.opacity)
                             }
 
                             // ── Medication cards ────────────────────────────
+                            // .id on the VStack (not individual cards) so the whole
+                            // group resets State atomically and can fade as one unit.
                             VStack(spacing: 8) {
                                 ForEach(Medication.allCases, id: \.rawValue) { med in
                                     MedicationCard(medication: med, child: child)
-                                        // Force re-creation (and State reset) when child changes
-                                        // so the interval picker resets to the medication default.
-                                        .id(child.persistentModelID)
                                 }
                             }
+                            .id(child.persistentModelID)
+                            .transition(.opacity)
                             .padding(.horizontal)
 
                             Button {

@@ -443,13 +443,16 @@ private struct ChildRowView: View {
     let child: Child
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Circle()
-                .fill(Color(hex: child.colorHex))
-                .frame(width: 30, height: 30)
+                .fill(
+                    Color(hex: child.colorHex)
+                        .shadow(.inner(color: .black.opacity(0.18), radius: 3, x: 0, y: 2))
+                )
+                .frame(width: 44, height: 44)
                 .overlay {
                     Text(child.name.prefix(1).uppercased())
-                        .font(.subheadline.bold())
+                        .font(.title3.bold())
                         .foregroundStyle(.white)
                 }
 
