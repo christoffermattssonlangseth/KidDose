@@ -275,22 +275,20 @@ struct ChildrenView: View {
                         || !FamilyCloudSyncService.shared.isConfigured
                 )
 
-                if let lastManualSyncAt {
-                    Text("Last sync: \(lastManualSyncAt.formatted(date: .omitted, time: .shortened))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let manualSyncStatus {
-                    Text(manualSyncStatus)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let manualSyncError {
-                    Text(manualSyncError)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                if lastManualSyncAt != nil || manualSyncStatus != nil || manualSyncError != nil {
+                    VStack(alignment: .leading, spacing: 3) {
+                        if let lastManualSyncAt {
+                            Text("Last sync: \(lastManualSyncAt.formatted(date: .omitted, time: .shortened))")
+                        }
+                        if let manualSyncStatus {
+                            Text(manualSyncStatus)
+                        }
+                        if let manualSyncError {
+                            Text(manualSyncError)
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
 
                 Button(role: .destructive) {
@@ -402,17 +400,18 @@ struct ChildrenView: View {
                 .controlSize(.small)
                 .disabled(isFamilyActionInProgress || !viewModel.familySyncAvailable)
 
-                if let familyStatusMessage {
-                    Text(familyStatusMessage)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let familyErrorMessage {
-                    Text(familyErrorMessage)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
+                if familyStatusMessage != nil || familyErrorMessage != nil {
+                    VStack(alignment: .leading, spacing: 3) {
+                        if let familyStatusMessage {
+                            Text(familyStatusMessage)
+                        }
+                        if let familyErrorMessage {
+                            Text(familyErrorMessage)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
             }
 
