@@ -275,6 +275,7 @@ struct MedicationCard: View {
                 .clipShape(.rect(topLeadingRadius: 13, bottomLeadingRadius: 13))
         }
         .shadow(color: cardShadowColor, radius: 6, y: 2)
+        .shadow(color: isOverdue ? .red.opacity(0.25) : .clear, radius: 12)
         .sheet(isPresented: $showRetroactiveSheet) {
             RetroactiveDoseSheet(
                 medication: medication,
