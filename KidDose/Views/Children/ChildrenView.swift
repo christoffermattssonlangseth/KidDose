@@ -24,10 +24,8 @@ struct ChildrenView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    Text("This tab is for setup. Dose logs and exports are in the History tab.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                Section("Overview") {
+                    SettingsInfoText("This tab is for setup. Dose logs and exports are in the History tab.")
                 }
 
                 Section {
@@ -51,9 +49,12 @@ struct ChildrenView: View {
                     Button {
                         showAddChild = true
                     } label: {
-                        Label("Add Child", systemImage: "plus.circle.fill")
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        SettingsActionLabel(
+                            title: "Add Child",
+                            systemImage: "plus.circle.fill"
+                        )
                     }
+                    .buttonStyle(.bordered)
                     .controlSize(.small)
                 } header: {
                     Text("Children")
@@ -66,12 +67,13 @@ struct ChildrenView: View {
                 }
 
                 Section("Live Activity") {
-                    HStack {
-                        Text("Device status")
-                        Spacer()
-                        Text(viewModel.liveActivitiesEnabledOnDevice ? "Enabled" : "Disabled")
-                            .foregroundStyle(viewModel.liveActivitiesEnabledOnDevice ? .green : .orange)
-                    }
+                    SettingsStatusRow(
+                        title: "Device status",
+                        value: viewModel.liveActivitiesEnabledOnDevice ? "Enabled" : "Disabled",
+                        color: viewModel.liveActivitiesEnabledOnDevice ? .green : .orange
+                    )
+
+                    SettingsGroupHeader("When to show")
 
                     Picker(
                         "Show",
@@ -87,6 +89,7 @@ struct ChildrenView: View {
                     .pickerStyle(.segmented)
 
                     if viewModel.liveActivityDisplayMode == .thirtyMinutesBefore {
+                        SettingsGroupHeader("Due soon threshold")
                         Picker(
                             "Threshold",
                             selection: Binding(
@@ -101,6 +104,7 @@ struct ChildrenView: View {
                         .pickerStyle(.segmented)
                     }
 
+                    SettingsGroupHeader("Appearance")
                     Picker(
                         "Layout",
                         selection: Binding(
@@ -122,6 +126,7 @@ struct ChildrenView: View {
                         )
                     )
 
+                    SettingsGroupHeader("Actions")
                     Button {
                         Task {
                             isLiveActivityRefreshing = true
@@ -140,19 +145,13 @@ struct ChildrenView: View {
                     .disabled(isLiveActivityRefreshing)
 
                     if let refreshedAt = viewModel.liveActivityLastRefreshAt {
-                        Text("Last refresh: \(refreshedAt.formatted(date: .omitted, time: .shortened))")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        SettingsInfoText("Last refresh: \(refreshedAt.formatted(date: .omitted, time: .shortened))")
                     }
 
-                    Text(viewModel.liveActivityStatusMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    SettingsInfoText(viewModel.liveActivityStatusMessage)
 
                     if let liveActivityError = viewModel.liveActivityErrorMessage {
-                        Text(liveActivityError)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        SettingsInfoText(liveActivityError)
                             .textSelection(.enabled)
                     }
                 }
@@ -167,9 +166,7 @@ struct ChildrenView: View {
                     )
 
                     if appLock.isEnabled {
-                        Text("KidDose will lock when it leaves the foreground.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        SettingsInfoText("KidDose will lock when it leaves the foreground.")
                     }
                 }
             }
@@ -203,18 +200,15 @@ struct ChildrenView: View {
 
     @ViewBuilder
     private var sharingButton: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             if !viewModel.iCloudAvailable {
-                Text("Family sharing needs iCloud + CloudKit capability. Personal Team signing disables this.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                SettingsInfoText("Family sharing needs iCloud + CloudKit capability. Personal Team signing disables this.")
             } else if !FamilyCloudSyncService.shared.isConfigured {
-                Text("Set a real bundle identifier to enable family sharing.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                SettingsInfoText("Set a real bundle identifier to enable family sharing.")
             }
 
             if viewModel.familySyncEnabled {
+                SettingsGroupHeader("Connection")
                 HStack {
                     FamilyStatusPill(title: "Connected", systemImage: "checkmark.circle.fill", color: .green)
                     Spacer()
@@ -224,16 +218,23 @@ struct ChildrenView: View {
                 }
 
                 if let familyID = viewModel.familyIdentifier {
-                    LabeledContent("Family ID") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Family ID")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
                         Text(familyID)
                             .font(.caption2.monospaced())
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .kidDoseSubtleSurface(cornerRadius: 10)
                 }
 
                 if viewModel.familySyncOwner, let currentInviteURL = inviteURL ?? viewModel.familyInviteURL {
+                    SettingsGroupHeader("Invite partner")
                     ShareLink(
                         item: currentInviteURL,
                         preview: SharePreview("KidDose Family Invite")
@@ -247,6 +248,7 @@ struct ChildrenView: View {
                     .controlSize(.small)
                 }
 
+                SettingsGroupHeader("Sync")
                 Button {
                     Task {
                         isManualSyncInProgress = true
@@ -275,20 +277,16 @@ struct ChildrenView: View {
                         || !FamilyCloudSyncService.shared.isConfigured
                 )
 
-                if lastManualSyncAt != nil || manualSyncStatus != nil || manualSyncError != nil {
-                    VStack(alignment: .leading, spacing: 3) {
-                        if let lastManualSyncAt {
-                            Text("Last sync: \(lastManualSyncAt.formatted(date: .omitted, time: .shortened))")
-                        }
-                        if let manualSyncStatus {
-                            Text(manualSyncStatus)
-                        }
-                        if let manualSyncError {
-                            Text(manualSyncError)
-                        }
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if let lastManualSyncAt {
+                    SettingsInfoText("Last sync: \(lastManualSyncAt.formatted(date: .omitted, time: .shortened))")
+                }
+
+                if let manualSyncStatus {
+                    SettingsInfoText(manualSyncStatus)
+                }
+
+                if let manualSyncError {
+                    SettingsInfoText(manualSyncError)
                 }
 
                 Button(role: .destructive) {
@@ -309,8 +307,10 @@ struct ChildrenView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             } else {
+                SettingsGroupHeader("Connection")
                 FamilyStatusPill(title: "Not connected", systemImage: "person.2", color: .secondary)
 
+                SettingsGroupHeader("Create family")
                 Button {
                     isFamilyActionInProgress = true
                     Task {
@@ -329,11 +329,9 @@ struct ChildrenView: View {
                 .controlSize(.small)
                 .disabled(!viewModel.familySyncAvailable || isFamilyActionInProgress)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Join with partner invite")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
+                SettingsGroupHeader("Join family")
+                VStack(alignment: .leading, spacing: 8) {
+                    SettingsInfoText("Paste the invite link from your partner.")
                     TextField("Paste invite link", text: $inviteLinkText)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -400,18 +398,13 @@ struct ChildrenView: View {
                 .controlSize(.small)
                 .disabled(isFamilyActionInProgress || !viewModel.familySyncAvailable)
 
-                if familyStatusMessage != nil || familyErrorMessage != nil {
-                    VStack(alignment: .leading, spacing: 3) {
-                        if let familyStatusMessage {
-                            Text(familyStatusMessage)
-                        }
-                        if let familyErrorMessage {
-                            Text(familyErrorMessage)
-                                .textSelection(.enabled)
-                        }
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if let familyStatusMessage {
+                    SettingsInfoText(familyStatusMessage)
+                }
+
+                if let familyErrorMessage {
+                    SettingsInfoText(familyErrorMessage)
+                        .textSelection(.enabled)
                 }
             }
 
@@ -481,6 +474,54 @@ private struct SettingsActionLabel: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, KidDoseLayout.compactVerticalPadding)
             .font(.subheadline.weight(.semibold))
+    }
+}
+
+private struct SettingsInfoText: View {
+    let text: String
+
+    init(_ text: String) {
+        self.text = text
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+    }
+}
+
+private struct SettingsGroupHeader: View {
+    let title: String
+
+    init(_ title: String) {
+        self.title = title
+    }
+
+    var body: some View {
+        Text(title.uppercased())
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.tertiary)
+            .padding(.top, 2)
+    }
+}
+
+private struct SettingsStatusRow: View {
+    let title: String
+    let value: String
+    let color: Color
+
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(color)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(color.opacity(0.12), in: Capsule())
+        }
     }
 }
 
