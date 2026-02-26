@@ -385,13 +385,7 @@ final class FamilyCloudSyncService {
         lastSyncErrorMessage = nil
 
         do {
-            let childRecords = try await fetchRecords(
-                recordType: Constants.childRecordType,
-                database: db,
-                zoneID: zoneID
-            )
-            let doseRecords = try await fetchRecords(
-                recordType: Constants.doseRecordType,
+            let (childRecords, doseRecords, deletedIDs) = try await fetchAllZoneRecords(
                 database: db,
                 zoneID: zoneID
             )
@@ -517,6 +511,17 @@ final class FamilyCloudSyncService {
                 )
                 context.insert(dose)
                 dosesByRecordName[recordName] = dose
+            }
+
+            // Apply remote deletions so records removed on one device disappear on the other.
+            if !deletedIDs.isEmpty {
+                let deletedNames = Set(deletedIDs.map(\.recordName))
+                for (name, dose) in dosesByRecordName where deletedNames.contains(name) {
+                    context.delete(dose)
+                }
+                for (name, child) in childrenByRecordName where deletedNames.contains(name) {
+                    context.delete(child)
+                }
             }
 
             do {
@@ -645,6 +650,41 @@ final class FamilyCloudSyncService {
         } catch {
             setError("Dose delete failed", error: error)
         }
+    }
+
+    /// Fetches ALL changes in a zone in a single pass, returning children, doses, and deleted IDs.
+    /// Replaces the previous two-call pattern (one call per record type) to halve CloudKit reads.
+    private func fetchAllZoneRecords(
+        database: CKDatabase,
+        zoneID: CKRecordZone.ID
+    ) async throws -> (children: [CKRecord], doses: [CKRecord], deletedIDs: [CKRecord.ID]) {
+        var children: [CKRecord] = []
+        var doses: [CKRecord] = []
+        var deletedIDs: [CKRecord.ID] = []
+        var changeToken: CKServerChangeToken? = nil
+        while true {
+            let page = try await database.recordZoneChanges(
+                inZoneWith: zoneID,
+                since: changeToken,
+                resultsLimit: Constants.maxQueryPageSize
+            )
+            for (_, result) in page.modificationResultsByID {
+                if case let .success(modification) = result {
+                    let record = modification.record
+                    if record.recordType == Constants.childRecordType {
+                        children.append(record)
+                    } else if record.recordType == Constants.doseRecordType {
+                        doses.append(record)
+                    }
+                }
+            }
+            for (recordID, _) in page.deletionsByID {
+                deletedIDs.append(recordID)
+            }
+            changeToken = page.changeToken
+            guard page.moreComing else { break }
+        }
+        return (children, doses, deletedIDs)
     }
 
     private func fetchRecords(

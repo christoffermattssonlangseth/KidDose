@@ -97,7 +97,7 @@ final class DoseViewModel {
         }
 
         guard familySyncEnabled else { return }
-        if includeUpload || familySyncOwner {
+        if includeUpload {
             await FamilyCloudSyncService.shared.uploadLocalData(context: context)
         }
         await FamilyCloudSyncService.shared.sync(context: context)
