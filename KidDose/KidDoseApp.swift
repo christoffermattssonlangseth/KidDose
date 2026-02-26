@@ -84,8 +84,12 @@ struct KidDoseApp: App {
                                 _ = await viewModel.refreshAcceptedFamily(context: modelContainer.mainContext)
                             }
 
-                            // Pull family-shared records (if configured) on launch.
-                            await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
+                            // Pull (and for owners, push) family-shared records on launch so
+                            // any writes that failed while offline are automatically retried.
+                            await viewModel.syncFamilyCloud(
+                                context: modelContainer.mainContext,
+                                includeUpload: viewModel.familySyncOwner
+                            )
                             viewModel.refreshLiveActivity(context: modelContainer.mainContext)
                         }
                         .task {
@@ -125,7 +129,11 @@ struct KidDoseApp: App {
                     if appLock.isEnabled && !appLock.isUnlocked {
                         _ = await appLock.requestUnlock()
                     }
-                    await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
+                    // Upload on foreground so any writes that failed while offline are retried.
+                    await viewModel.syncFamilyCloud(
+                        context: modelContainer.mainContext,
+                        includeUpload: viewModel.familySyncOwner
+                    )
                     viewModel.refreshLiveActivity(context: modelContainer.mainContext)
                 }
             case .inactive, .background:
