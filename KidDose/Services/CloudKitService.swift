@@ -303,7 +303,10 @@ final class FamilyCloudSyncService {
 
         do {
             _ = try await container.accept(metadata)
-            let zoneID = metadata.rootRecordID.zoneID
+            guard let zoneID = metadata.rootRecord?.recordID.zoneID else {
+                setStatus("Cloud share accepted. Looking up shared family zone...")
+                return await discoverAcceptedFamily(context: context)
+            }
             setActiveFamily(zoneID: zoneID, role: .participant, inviteURL: nil)
             setStatus("Cloud share accepted. Secure family sync is now enabled.")
             if let context {
@@ -572,7 +575,9 @@ final class FamilyCloudSyncService {
     func upsertDose(_ dose: DoseLog, context: ModelContext) async {
         guard let db = activeDatabase, let zoneID = activeZoneID, let child = dose.child else { return }
 
-        await upsertChild(child, context: context)
+        if child.cloudRecordName == nil {
+            await upsertChild(child, context: context)
+        }
 
         if dose.cloudRecordName == nil {
             dose.cloudRecordName = UUID().uuidString

@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import ActivityKit
 
 // MARK: - Scheduled Dose (upcoming)
 
@@ -19,6 +20,8 @@ struct ScheduledDose: Identifiable {
 @MainActor
 @Observable
 final class DoseViewModel {
+    @ObservationIgnored private var lastParticipantShareRefreshAt: Date = .distantPast
+    private let participantShareRefreshInterval: TimeInterval = 180
 
     // MARK: - iCloud Status
 
@@ -32,6 +35,14 @@ final class DoseViewModel {
     var familySyncLastErrorMessage: String? { FamilyCloudSyncService.shared.lastSyncErrorMessage }
     var bundleIdentifier: String { Bundle.main.bundleIdentifier ?? "(unknown)" }
     var cloudContainerIdentifier: String { CloudKitConfig.containerIdentifier ?? "(not configured)" }
+    var liveActivitiesEnabledOnDevice: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
+    var liveActivityStatusMessage: String { LiveActivityManager.shared.lastStatusMessage }
+    var liveActivityErrorMessage: String? { LiveActivityManager.shared.lastErrorMessage }
+    var liveActivityLastRefreshAt: Date? { LiveActivityManager.shared.lastRefreshAt }
+    var liveActivityLayoutStyle: LiveActivityLayoutStyle = LiveActivityManager.shared.preferredLayoutStyle
+    var liveActivityPreferLargeText: Bool = LiveActivityManager.shared.preferLargeText
+    var liveActivityDisplayMode: LiveActivityDisplayMode = LiveActivityManager.shared.displayMode
+    var liveActivityDueSoonThreshold: LiveActivityDueSoonThreshold = LiveActivityManager.shared.dueSoonThreshold
 
     @MainActor
     func refreshiCloudStatus() async {
@@ -73,7 +84,15 @@ final class DoseViewModel {
 
     @MainActor
     func syncFamilyCloud(context: ModelContext, includeUpload: Bool = false) async {
-        if !familySyncEnabled, familySyncAvailable {
+        if familySyncAvailable, !familySyncOwner {
+            let shouldRefreshShare =
+                !familySyncEnabled
+                || Date.now.timeIntervalSince(lastParticipantShareRefreshAt) >= participantShareRefreshInterval
+            if shouldRefreshShare {
+                lastParticipantShareRefreshAt = .now
+                _ = await FamilyCloudSyncService.shared.discoverAcceptedFamily(context: nil)
+            }
+        } else if !familySyncEnabled, familySyncAvailable {
             _ = await FamilyCloudSyncService.shared.discoverAcceptedFamily(context: nil)
         }
 
@@ -82,6 +101,7 @@ final class DoseViewModel {
             await FamilyCloudSyncService.shared.uploadLocalData(context: context)
         }
         await FamilyCloudSyncService.shared.sync(context: context)
+        refreshLiveActivity(context: context)
     }
 
     @MainActor
@@ -100,7 +120,42 @@ final class DoseViewModel {
             await FamilyCloudSyncService.shared.uploadLocalData(context: context)
         }
         await FamilyCloudSyncService.shared.sync(context: context)
+        refreshLiveActivity(context: context)
         return FamilyCloudSyncService.shared.lastSyncErrorMessage == nil
+    }
+
+    @MainActor
+    func refreshLiveActivity(context: ModelContext) {
+        let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+        LiveActivityManager.shared.refresh(children: children, using: self)
+    }
+
+    @MainActor
+    func setLiveActivityLayoutStyle(_ style: LiveActivityLayoutStyle, context: ModelContext) {
+        liveActivityLayoutStyle = style
+        LiveActivityManager.shared.preferredLayoutStyle = style
+        refreshLiveActivity(context: context)
+    }
+
+    @MainActor
+    func setLiveActivityPreferLargeText(_ enabled: Bool, context: ModelContext) {
+        liveActivityPreferLargeText = enabled
+        LiveActivityManager.shared.preferLargeText = enabled
+        refreshLiveActivity(context: context)
+    }
+
+    @MainActor
+    func setLiveActivityDisplayMode(_ mode: LiveActivityDisplayMode, context: ModelContext) {
+        liveActivityDisplayMode = mode
+        LiveActivityManager.shared.displayMode = mode
+        refreshLiveActivity(context: context)
+    }
+
+    @MainActor
+    func setLiveActivityDueSoonThreshold(_ threshold: LiveActivityDueSoonThreshold, context: ModelContext) {
+        liveActivityDueSoonThreshold = threshold
+        LiveActivityManager.shared.dueSoonThreshold = threshold
+        refreshLiveActivity(context: context)
     }
 
     // MARK: - Dose Logic
@@ -148,8 +203,9 @@ final class DoseViewModel {
         activeSessionEndedAt(for: medication, child: child)
     }
 
-    /// All future dose windows across the given children, sorted soonest first.
-    func upcomingDoses(for children: [Child]) -> [ScheduledDose] {
+    /// Dose windows across the given children, sorted soonest first.
+    /// `clampToNow` keeps overdue windows at "now" for upcoming-only UI surfaces.
+    func upcomingDoses(for children: [Child], clampToNow: Bool = true) -> [ScheduledDose] {
         var result: [ScheduledDose] = []
         for child in children {
             for med in Medication.allCases {
@@ -158,7 +214,7 @@ final class DoseViewModel {
 
                 let interval = effectiveInterval(lastDose: lastDose, medication: med)
                 let nextAllowed = lastDose.timestamp.addingTimeInterval(interval * 3600)
-                let next = max(nextAllowed, Date.now)
+                let next = clampToNow ? max(nextAllowed, Date.now) : nextAllowed
                 result.append(
                     ScheduledDose(
                         child: child,
@@ -234,6 +290,7 @@ final class DoseViewModel {
         )
         context.insert(log)
         try? context.save()
+        refreshLiveActivity(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertDose(log, context: context)
@@ -308,6 +365,7 @@ final class DoseViewModel {
 
         context.delete(child)
         try? context.save()
+        refreshLiveActivity(context: context)
     }
 
     @MainActor
@@ -323,6 +381,7 @@ final class DoseViewModel {
             }
             context.delete(dose)
             try? context.save()
+            refreshLiveActivity(context: context)
             return
         }
 
@@ -332,6 +391,7 @@ final class DoseViewModel {
 
         context.delete(dose)
         try? context.save()
+        refreshLiveActivity(context: context)
 
         if let recordName {
             Task {
@@ -374,6 +434,7 @@ final class DoseViewModel {
         guard let latestDose = latestDoseInCurrentCycle(for: medication, child: child) else { return }
         latestDose.usedIntervalHours = intervalHours
         try? context.save()
+        refreshLiveActivity(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertDose(latestDose, context: context)
@@ -402,6 +463,7 @@ final class DoseViewModel {
     ) {
         child.setSessionEndedAt(.now, for: medication)
         try? context.save()
+        refreshLiveActivity(context: context)
 
         NotificationManager.shared.cancelDoseNotification(
             childName: child.name,
@@ -421,6 +483,7 @@ final class DoseViewModel {
     ) {
         child.setSessionEndedAt(nil, for: medication)
         try? context.save()
+        refreshLiveActivity(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertChild(child, context: context)
@@ -453,6 +516,7 @@ final class DoseViewModel {
             )
         }
         try? context.save()
+        refreshLiveActivity(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertChild(child, context: context)

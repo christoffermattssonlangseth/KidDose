@@ -22,9 +22,9 @@ struct HomeView: View {
     }
 
     var body: some View {
-            NavigationStack {
-                ScrollView {
-                VStack(spacing: 8) {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 10) {
 
                     // iCloud banner
                     if !viewModel.iCloudAvailable {
@@ -65,9 +65,21 @@ struct HomeView: View {
                             .padding(.horizontal)
                         }
 
-                        // ── Medication cards ────────────────────────────
                         if let child = selectedChild {
-                            VStack(spacing: 6) {
+                            let upcoming = viewModel.upcomingDoses(for: [child])
+
+                            if let next = upcoming.first {
+                                NextDoseSection(
+                                    item: next,
+                                    additionalCount: max(0, upcoming.count - 1)
+                                ) {
+                                    showFullSchedule = true
+                                }
+                                .padding(.horizontal)
+                            }
+
+                            // ── Medication cards ────────────────────────────
+                            VStack(spacing: 8) {
                                 ForEach(Medication.allCases, id: \.rawValue) { med in
                                     MedicationCard(medication: med, child: child)
                                         // Force re-creation (and State reset) when child changes
@@ -82,24 +94,16 @@ struct HomeView: View {
                             } label: {
                                 Label("Start New Infection Cycle", systemImage: "arrow.counterclockwise.circle")
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 8)
+                                    .padding(.vertical, KidDoseLayout.compactVerticalPadding)
                                     .font(.subheadline.weight(.semibold))
                             }
                             .buttonStyle(.bordered)
+                            .controlSize(.small)
                             .padding(.horizontal)
-
-                            // ── Upcoming doses for this child ───────────
-                            let upcoming = viewModel.upcomingDoses(for: [child])
-                            if !upcoming.isEmpty {
-                                UpcomingSection(items: upcoming) {
-                                    showFullSchedule = true
-                                }
-                                    .padding(.horizontal)
-                            }
                         }
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 8)
             }
             .navigationTitle("KidDose")
             .navigationBarTitleDisplayMode(.large)
@@ -157,47 +161,45 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Upcoming Section
+// MARK: - Next Dose
 
-struct UpcomingSection: View {
-    let items: [ScheduledDose]
+struct NextDoseSection: View {
+    let item: ScheduledDose
+    let additionalCount: Int
     let onViewFullSchedule: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Label("Upcoming Doses", systemImage: "calendar.badge.clock")
-                    .font(.headline)
+                Label("Next Dose", systemImage: "clock.badge.checkmark")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
+                if additionalCount > 0 {
+                    Text("+\(additionalCount) more")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
-                Button("Full schedule") {
+                Button("View all") {
                     onViewFullSchedule()
                 }
                 .font(.caption.weight(.semibold))
             }
 
-            VStack(spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    UpcomingRow(item: item)
-                    if index < items.count - 1 {
-                        Divider().padding(.leading, 46)
-                    }
-                }
-            }
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .shadow(color: .black.opacity(0.05), radius: 6, y: 3)
+            NextDoseRow(item: item)
         }
+        .padding(12)
+        .kidDoseCardSurface()
     }
 }
 
-// MARK: - Upcoming Row
+// MARK: - Next Dose Row
 
-private struct UpcomingRow: View {
+private struct NextDoseRow: View {
     let item: ScheduledDose
 
     var body: some View {
         HStack(spacing: 10) {
-            // Medication icon
             Circle()
                 .fill(item.medication.color.opacity(0.15))
                 .frame(width: 34, height: 34)
@@ -209,6 +211,9 @@ private struct UpcomingRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.medication.displayName)
                     .font(.subheadline.bold())
+                Text(item.child.name)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 Text(formattedTime(item.nextDate))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -216,7 +221,6 @@ private struct UpcomingRow: View {
 
             Spacer()
 
-            // Live countdown to this specific upcoming dose
             TimelineView(.periodic(from: .now, by: 60)) { context in
                 let remaining = item.nextDate.timeIntervalSince(context.date)
                 if remaining > 0 {
@@ -226,14 +230,20 @@ private struct UpcomingRow: View {
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(item.medication.color.opacity(0.12), in: Capsule())
+                } else {
+                    Text("now")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.green)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.green.opacity(0.12), in: Capsule())
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 2)
+        .padding(.vertical, 2)
     }
 
-    /// "Today at 3:45 PM", "Tomorrow at 6:00 AM", "Wed at 9:15 AM"
     private func formattedTime(_ date: Date) -> String {
         let cal = Calendar.current
         let formatter = DateFormatter()
@@ -252,7 +262,6 @@ private struct UpcomingRow: View {
         }
     }
 
-    /// Compact countdown for the upcoming row: "5h 30m", "45m"
     private func roughCountdown(_ interval: TimeInterval) -> String {
         let h = Int(interval) / 3600
         let m = (Int(interval) % 3600) / 60
@@ -277,8 +286,8 @@ private struct ChildChip: View {
                 Text(child.name)
                     .font(.subheadline.weight(isSelected ? .semibold : .regular))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
+            .padding(.vertical, KidDoseLayout.compactVerticalPadding)
             .background(
                 isSelected
                     ? Color(hex: child.colorHex).opacity(0.2)

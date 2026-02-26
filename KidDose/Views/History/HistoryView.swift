@@ -2,13 +2,6 @@ import SwiftUI
 import SwiftData
 import UIKit
 
-// MARK: - History mode
-
-private enum HistoryMode: String, CaseIterable {
-    case past     = "Past"
-    case upcoming = "Upcoming"
-}
-
 // MARK: - HistoryView
 
 struct HistoryView: View {
@@ -17,7 +10,8 @@ struct HistoryView: View {
     @Environment(DoseViewModel.self) private var viewModel
     @Environment(\.modelContext) private var context
 
-    @State private var mode: HistoryMode = .past
+    @State private var showPast = true
+    @State private var showUpcoming = false
     @State private var selectedChildID: PersistentIdentifier? = nil   // nil = All
     @State private var exportFile: ExportFile?
     @State private var exportErrorMessage: String?
@@ -50,53 +44,55 @@ struct HistoryView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-
-                // ── Mode toggle (Past / Upcoming) ────────────────────
-                Picker("Mode", selection: $mode) {
-                    ForEach(HistoryMode.allCases, id: \.self) { m in
-                        Text(m.rawValue).tag(m)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(Color(.systemBackground))
-
-                Divider()
-
-                // ── Child filter chips ───────────────────────────────
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        FilterChip(
-                            label: "All",
-                            isSelected: selectedChildID == nil,
+            VStack(spacing: 8) {
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        HistoryModeToggleChip(
+                            title: "Past",
+                            systemImage: "clock.arrow.circlepath",
+                            isOn: showPast,
                             color: .accentColor
-                        ) { selectedChildID = nil }
+                        ) {
+                            togglePast()
+                        }
 
-                        ForEach(children) { child in
+                        HistoryModeToggleChip(
+                            title: "Upcoming",
+                            systemImage: "calendar.badge.clock",
+                            isOn: showUpcoming,
+                            color: .orange
+                        ) {
+                            toggleUpcoming()
+                        }
+
+                        Spacer()
+                    }
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
                             FilterChip(
-                                label: child.name,
-                                isSelected: selectedChildID == child.persistentModelID,
-                                color: Color(hex: child.colorHex)
-                            ) { selectedChildID = child.persistentModelID }
+                                label: "All",
+                                isSelected: selectedChildID == nil,
+                                color: .accentColor
+                            ) { selectedChildID = nil }
+
+                            ForEach(children) { child in
+                                FilterChip(
+                                    label: child.name,
+                                    isSelected: selectedChildID == child.persistentModelID,
+                                    color: Color(hex: child.colorHex)
+                                ) { selectedChildID = child.persistentModelID }
+                            }
                         }
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical, 6)
                 }
-                .background(Color(.systemBackground))
+                .padding(10)
+                .kidDoseCardSurface(cornerRadius: 13)
+                .padding(.horizontal)
 
-                Divider()
-
-                // ── Content ──────────────────────────────────────────
-                switch mode {
-                case .past:
-                    pastContent
-                case .upcoming:
-                    upcomingContent
-                }
+                contentArea
             }
+            .padding(.top, 8)
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -128,17 +124,30 @@ struct HistoryView: View {
         }
     }
 
+    @ViewBuilder
+    private var contentArea: some View {
+        switch (showPast, showUpcoming) {
+        case (true, false):
+            pastContent
+        case (false, true):
+            upcomingContent
+        case (true, true):
+            combinedContent
+        case (false, false):
+            Spacer()
+            Text("Select Past or Upcoming")
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+    }
+
     // MARK: Past content
 
     @ViewBuilder
     private var pastContent: some View {
-        // Stats summary
         StatsRowView(stats: statsMap)
             .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color(.secondarySystemBackground))
-
-        Divider()
+            .padding(.bottom, 2)
 
         if filteredDoses.isEmpty {
             Spacer()
@@ -149,10 +158,15 @@ struct HistoryView: View {
             List {
                 ForEach(filteredDoses) { dose in
                     DoseRowView(dose: dose)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                 }
                 .onDelete(perform: deleteDoses)
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
         }
     }
 
@@ -176,9 +190,69 @@ struct HistoryView: View {
         } else {
             List(upcomingItems) { item in
                 UpcomingHistoryRow(item: item)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
         }
+    }
+
+    // MARK: Combined content
+
+    @ViewBuilder
+    private var combinedContent: some View {
+        StatsRowView(stats: statsMap)
+            .padding(.horizontal)
+            .padding(.bottom, 2)
+
+        List {
+            Section("Upcoming") {
+                if upcomingItems.isEmpty {
+                    Text("No upcoming dose windows to show.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(upcomingItems) { item in
+                        UpcomingHistoryRow(item: item)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                    }
+                }
+            }
+
+            Section("Past") {
+                if filteredDoses.isEmpty {
+                    Text("No doses recorded")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(filteredDoses) { dose in
+                        DoseRowView(dose: dose)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                    }
+                    .onDelete(perform: deleteDoses)
+                }
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+    }
+
+    // MARK: Toggle helpers
+
+    private func togglePast() {
+        if showPast && !showUpcoming { return }
+        showPast.toggle()
+    }
+
+    private func toggleUpcoming() {
+        if showUpcoming && !showPast { return }
+        showUpcoming.toggle()
     }
 
     // MARK: Delete
@@ -286,6 +360,37 @@ struct HistoryView: View {
     }
 }
 
+private struct HistoryModeToggleChip: View {
+    let title: String
+    let systemImage: String
+    let isOn: Bool
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .imageScale(.small)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+            }
+            .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
+            .padding(.vertical, KidDoseLayout.compactVerticalPadding)
+            .foregroundStyle(isOn ? color : .secondary)
+            .background(
+                isOn ? color.opacity(0.16) : Color(.tertiarySystemBackground),
+                in: Capsule()
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(isOn ? color : Color.clear, lineWidth: 1.3)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct ExportFile: Identifiable {
     let id = UUID()
     let url: URL
@@ -355,7 +460,9 @@ private struct UpcomingHistoryRow: View {
                 }
             }
         }
-        .padding(.vertical, 3)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .kidDoseSubtleSurface(cornerRadius: 12)
     }
 
     private func formattedAbsoluteTime(_ date: Date) -> String {
@@ -392,8 +499,8 @@ private struct FilterChip: View {
         Button(action: action) {
             Text(label)
                 .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
+                .padding(.vertical, KidDoseLayout.compactVerticalPadding)
                 .background(isSelected ? color.opacity(0.18) : Color(.tertiarySystemBackground), in: Capsule())
                 .overlay(Capsule().strokeBorder(isSelected ? color : .clear, lineWidth: 1.5))
         }
@@ -407,7 +514,7 @@ private struct StatsRowView: View {
     let stats: [String: Int]
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 8) {
             ForEach(Medication.allCases, id: \.rawValue) { med in
                 HStack(spacing: 5) {
                     Image(systemName: med.iconName)
@@ -420,9 +527,14 @@ private struct StatsRowView: View {
                             .font(.subheadline.bold())
                     }
                 }
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .kidDoseSubtleSurface(cornerRadius: 11)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .padding(6)
+        .kidDoseCardSurface(cornerRadius: 13)
     }
 }
 
@@ -481,7 +593,9 @@ private struct DoseRowView: View {
                     .multilineTextAlignment(.trailing)
             }
         }
-        .padding(.vertical, 3)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .kidDoseSubtleSurface(cornerRadius: 12)
     }
 
     private func relativeTimestamp(for timestamp: Date, now: Date) -> String {

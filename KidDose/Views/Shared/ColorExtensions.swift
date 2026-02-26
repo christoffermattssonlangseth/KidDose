@@ -45,3 +45,49 @@ extension Color {
         Color(hex: "#DDA0DD")  // plum
     ]
 }
+
+enum KidDoseLayout {
+    static let cardCornerRadius: CGFloat = 14
+    static let smallCornerRadius: CGFloat = 10
+    static let compactVerticalPadding: CGFloat = 7
+    static let compactHorizontalPadding: CGFloat = 10
+}
+
+private struct KidDoseCardSurfaceModifier: ViewModifier {
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                .regularMaterial,
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+    }
+}
+
+private struct KidDoseSubtleSurfaceModifier: ViewModifier {
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                Color(.secondarySystemBackground),
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+    }
+}
+
+extension View {
+    func kidDoseCardSurface(cornerRadius: CGFloat = KidDoseLayout.cardCornerRadius) -> some View {
+        modifier(KidDoseCardSurfaceModifier(cornerRadius: cornerRadius))
+    }
+
+    func kidDoseSubtleSurface(cornerRadius: CGFloat = KidDoseLayout.smallCornerRadius) -> some View {
+        modifier(KidDoseSubtleSurfaceModifier(cornerRadius: cornerRadius))
+    }
+}

@@ -4,60 +4,180 @@ import SwiftData
 struct ChildrenView: View {
     @Environment(\.modelContext) private var context
     @Environment(DoseViewModel.self) private var viewModel
+    @Environment(AppLockService.self) private var appLock
     @Query(sort: \Child.name) private var children: [Child]
 
     @State private var showAddChild = false
     @State private var showDeleteConfirm = false
     @State private var childToDelete: Child?
-    @State private var showFamilySetup = false
+    @State private var isFamilyActionInProgress = false
+    @State private var inviteURL: URL?
+    @State private var inviteLinkText = ""
+    @State private var familyStatusMessage: String?
+    @State private var familyErrorMessage: String?
     @State private var isManualSyncInProgress = false
     @State private var lastManualSyncAt: Date?
     @State private var manualSyncStatus: String?
     @State private var manualSyncError: String?
-
-    private var canUseFamilySync: Bool {
-        viewModel.familySyncAvailable
-    }
+    @State private var isLiveActivityRefreshing = false
 
     var body: some View {
         NavigationStack {
             List {
-                if children.isEmpty {
-                    ContentUnavailableView(
-                        "No children",
-                        systemImage: "person.2",
-                        description: Text("Tap + to add your first child.")
-                    )
-                    .listRowBackground(Color.clear)
-                } else {
-                    ForEach(children) { child in
-                        ChildRowView(child: child)
-                    }
-                    .onDelete(perform: confirmDelete)
+                Section {
+                    Text("This tab is for setup. Dose logs and exports are in the History tab.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle("Children")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+
+                Section {
+                    if children.isEmpty {
+                        ContentUnavailableView(
+                            "No children",
+                            systemImage: "person.2",
+                            description: Text("Add your first child profile to start tracking doses.")
+                        )
+                        .listRowBackground(Color.clear)
+                    } else {
+                        ForEach(children) { child in
+                            ChildRowView(child: child)
+                                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                        }
+                        .onDelete(perform: confirmDelete)
+                    }
+
                     Button {
                         showAddChild = true
                     } label: {
-                        Image(systemName: "plus")
+                        Label("Add Child", systemImage: "plus.circle.fill")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .controlSize(.small)
+                } header: {
+                    Text("Children")
+                } footer: {
+                    Text("Swipe left on a child to delete the profile and its dose data.")
+                }
+
+                Section("Family Sharing") {
+                    sharingButton
+                }
+
+                Section("Live Activity") {
+                    HStack {
+                        Text("Device status")
+                        Spacer()
+                        Text(viewModel.liveActivitiesEnabledOnDevice ? "Enabled" : "Disabled")
+                            .foregroundStyle(viewModel.liveActivitiesEnabledOnDevice ? .green : .orange)
+                    }
+
+                    Picker(
+                        "Show",
+                        selection: Binding(
+                            get: { viewModel.liveActivityDisplayMode },
+                            set: { viewModel.setLiveActivityDisplayMode($0, context: context) }
+                        )
+                    ) {
+                        ForEach(LiveActivityDisplayMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    if viewModel.liveActivityDisplayMode == .thirtyMinutesBefore {
+                        Picker(
+                            "Threshold",
+                            selection: Binding(
+                                get: { viewModel.liveActivityDueSoonThreshold },
+                                set: { viewModel.setLiveActivityDueSoonThreshold($0, context: context) }
+                            )
+                        ) {
+                            ForEach(LiveActivityDueSoonThreshold.allCases) { threshold in
+                                Text(threshold.title).tag(threshold)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    Picker(
+                        "Layout",
+                        selection: Binding(
+                            get: { viewModel.liveActivityLayoutStyle },
+                            set: { viewModel.setLiveActivityLayoutStyle($0, context: context) }
+                        )
+                    ) {
+                        ForEach(LiveActivityLayoutStyle.allCases) { style in
+                            Text(style.title).tag(style)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Toggle(
+                        "Larger countdown text",
+                        isOn: Binding(
+                            get: { viewModel.liveActivityPreferLargeText },
+                            set: { viewModel.setLiveActivityPreferLargeText($0, context: context) }
+                        )
+                    )
+
+                    Button {
+                        Task {
+                            isLiveActivityRefreshing = true
+                            viewModel.refreshLiveActivity(context: context)
+                            try? await Task.sleep(for: .milliseconds(700))
+                            isLiveActivityRefreshing = false
+                        }
+                    } label: {
+                        SettingsActionLabel(
+                            title: isLiveActivityRefreshing ? "Refreshing..." : "Update Live Activity",
+                            systemImage: "arrow.clockwise"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isLiveActivityRefreshing)
+
+                    if let refreshedAt = viewModel.liveActivityLastRefreshAt {
+                        Text("Last refresh: \(refreshedAt.formatted(date: .omitted, time: .shortened))")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text(viewModel.liveActivityStatusMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    if let liveActivityError = viewModel.liveActivityErrorMessage {
+                        Text(liveActivityError)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                }
+
+                Section("Privacy") {
+                    Toggle(
+                        "Require Face ID / Passcode",
+                        isOn: Binding(
+                            get: { appLock.isEnabled },
+                            set: { appLock.setEnabled($0) }
+                        )
+                    )
+
+                    if appLock.isEnabled {
+                        Text("KidDose will lock when it leaves the foreground.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                sharingButton
-                    .padding(12)
-                    .background(.ultraThinMaterial)
-            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showAddChild) {
                 AddChildSheet()
-            }
-            .sheet(isPresented: $showFamilySetup) {
-                FamilySetupSheet()
             }
             .confirmationDialog(
                 "Delete \(childToDelete?.name ?? "child")?",
@@ -79,58 +199,54 @@ struct ChildrenView: View {
         }
     }
 
-    // MARK: - Family Sync Panel
+    // MARK: - Settings Panel
 
     @ViewBuilder
     private var sharingButton: some View {
-        VStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 12) {
+            if !viewModel.iCloudAvailable {
+                Text("Family sharing needs iCloud + CloudKit capability. Personal Team signing disables this.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if !FamilyCloudSyncService.shared.isConfigured {
+                Text("Set a real bundle identifier to enable family sharing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if viewModel.familySyncEnabled {
                 HStack {
-                    Text("Secure family sync")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    FamilyStatusPill(title: "Connected", systemImage: "checkmark.circle.fill", color: .green)
                     Spacer()
                     Text(viewModel.familySyncOwner ? "Owner" : "Participant")
                         .font(.caption.monospacedDigit().bold())
+                        .foregroundStyle(.secondary)
                 }
 
                 if let familyID = viewModel.familyIdentifier {
-                    Text(familyID)
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                    LabeledContent("Family ID") {
+                        Text(familyID)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
                 }
 
-                if viewModel.familySyncOwner, let inviteURL = viewModel.familyInviteURL {
+                if viewModel.familySyncOwner, let currentInviteURL = inviteURL ?? viewModel.familyInviteURL {
                     ShareLink(
-                        item: inviteURL,
+                        item: currentInviteURL,
                         preview: SharePreview("KidDose Family Invite")
                     ) {
-                        Label("Invite Parent", systemImage: "person.badge.plus")
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .font(.headline)
+                        SettingsActionLabel(
+                            title: "Share Invite Link",
+                            systemImage: "square.and.arrow.up"
+                        )
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
-            }
 
-            Button {
-                showFamilySetup = true
-            } label: {
-                Label(
-                    viewModel.familySyncEnabled ? "Manage Family Sync" : "Set Up Family Sync",
-                    systemImage: "person.2.badge.gearshape"
-                )
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .font(.headline)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(!canUseFamilySync)
-
-            if viewModel.familySyncEnabled {
                 Button {
                     Task {
                         isManualSyncInProgress = true
@@ -147,17 +263,15 @@ struct ChildrenView: View {
                         }
                     }
                 } label: {
-                    Label(
-                        isManualSyncInProgress ? "Syncing..." : "Sync Now",
-                        systemImage: "arrow.clockwise"
+                    SettingsActionLabel(
+                        title: isManualSyncInProgress ? "Syncing..." : "Sync Now",
+                        systemImage: "arrow.triangle.2.circlepath"
                     )
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
                 .disabled(
                     isManualSyncInProgress
-                        || !viewModel.familySyncEnabled
                         || !FamilyCloudSyncService.shared.isConfigured
                 )
 
@@ -178,16 +292,128 @@ struct ChildrenView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-            }
 
-            if !viewModel.iCloudAvailable {
-                Text("Family sync needs iCloud + CloudKit capability. Personal Team signing disables this.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else if !FamilyCloudSyncService.shared.isConfigured {
-                Text("Set a real bundle identifier to enable family sync.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Button(role: .destructive) {
+                    viewModel.clearFamilySync()
+                    inviteURL = nil
+                    inviteLinkText = ""
+                    familyStatusMessage = nil
+                    familyErrorMessage = nil
+                    lastManualSyncAt = nil
+                    manualSyncStatus = nil
+                    manualSyncError = nil
+                } label: {
+                    SettingsActionLabel(
+                        title: "Disconnect Family Sharing",
+                        systemImage: "person.2.slash"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            } else {
+                FamilyStatusPill(title: "Not connected", systemImage: "person.2", color: .secondary)
+
+                Button {
+                    isFamilyActionInProgress = true
+                    Task {
+                        inviteURL = await viewModel.createSecureFamilyInvite(context: context)
+                        familyStatusMessage = viewModel.familySyncLastStatusMessage
+                        familyErrorMessage = viewModel.familySyncLastErrorMessage
+                        isFamilyActionInProgress = false
+                    }
+                } label: {
+                    SettingsActionLabel(
+                        title: "Create Family & Invite",
+                        systemImage: "person.2.badge.plus"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(!viewModel.familySyncAvailable || isFamilyActionInProgress)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Join with partner invite")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    TextField("Paste invite link", text: $inviteLinkText)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                Button {
+                    isFamilyActionInProgress = true
+                    let trimmed = inviteLinkText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    Task {
+                        guard let url = URL(string: trimmed) else {
+                            familyErrorMessage = "Invalid invite link."
+                            familyStatusMessage = nil
+                            isFamilyActionInProgress = false
+                            return
+                        }
+
+                        let accepted = await viewModel.acceptCloudShareURL(url, context: context)
+                        familyStatusMessage = viewModel.familySyncLastStatusMessage
+                        if accepted {
+                            familyErrorMessage = viewModel.familySyncLastErrorMessage
+                            inviteLinkText = ""
+                        } else {
+                            familyErrorMessage = viewModel.familySyncLastErrorMessage
+                                ?? "Could not accept invite link."
+                        }
+                        isFamilyActionInProgress = false
+                    }
+                } label: {
+                    SettingsActionLabel(
+                        title: "Accept Invite Link",
+                        systemImage: "checkmark.circle"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(
+                    isFamilyActionInProgress
+                        || !viewModel.familySyncAvailable
+                        || inviteLinkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+
+                Button {
+                    isFamilyActionInProgress = true
+                    Task {
+                        let joined = await viewModel.refreshAcceptedFamily(context: context)
+                        familyStatusMessage = viewModel.familySyncLastStatusMessage
+                        if joined {
+                            familyErrorMessage = viewModel.familySyncLastErrorMessage
+                        } else {
+                            familyErrorMessage = viewModel.familySyncLastErrorMessage
+                                ?? "No accepted invite found yet."
+                        }
+                        isFamilyActionInProgress = false
+                    }
+                } label: {
+                    SettingsActionLabel(
+                        title: "Refresh Accepted Invite",
+                        systemImage: "arrow.clockwise"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(isFamilyActionInProgress || !viewModel.familySyncAvailable)
+
+                if let familyStatusMessage {
+                    Text(familyStatusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let familyErrorMessage {
+                    Text(familyErrorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
             }
 
             #if DEBUG
@@ -217,205 +443,56 @@ struct ChildrenView: View {
 private struct ChildRowView: View {
     let child: Child
 
-    var totalDoses: Int { child.doses.count }
-
     var body: some View {
         HStack(spacing: 10) {
             Circle()
                 .fill(Color(hex: child.colorHex))
-                .frame(width: 32, height: 32)
+                .frame(width: 30, height: 30)
                 .overlay {
                     Text(child.name.prefix(1).uppercased())
-                        .font(.headline.bold())
+                        .font(.subheadline.bold())
                         .foregroundStyle(.white)
                 }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(child.name)
                     .font(.headline)
-                Text("\(totalDoses) dose\(totalDoses == 1 ? "" : "s") total")
-                    .font(.subheadline)
+                Text("Profile used in Home and History")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
-
-            // Per-medication mini summary
-            HStack(spacing: 8) {
-                ForEach(Medication.allCases, id: \.rawValue) { med in
-                    let count = child.doses.filter { $0.medication == med.rawValue }.count
-                    VStack(spacing: 2) {
-                        Image(systemName: med.iconName)
-                            .foregroundStyle(med.color)
-                            .imageScale(.small)
-                        Text("\(count)")
-                            .font(.caption2.bold())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
         }
-        .padding(.vertical, 3)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .kidDoseSubtleSurface(cornerRadius: 11)
     }
 }
 
-private struct FamilySetupSheet: View {
-    @Environment(\.modelContext) private var context
-    @Environment(DoseViewModel.self) private var viewModel
-    @Environment(AppLockService.self) private var appLock
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var isWorking = false
-    @State private var inviteURL: URL?
-    @State private var inviteLinkText = ""
-    @State private var statusMessage: String?
-    @State private var errorMessage: String?
+private struct SettingsActionLabel: View {
+    let title: String
+    let systemImage: String
 
     var body: some View {
-        NavigationStack {
-            Form {
-                if !viewModel.familySyncAvailable {
-                    Section {
-                        Text("Family sync requires iCloud + CloudKit capability. On a Personal Team, build works locally but family sync is unavailable.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+        Label(title, systemImage: systemImage)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, KidDoseLayout.compactVerticalPadding)
+            .font(.subheadline.weight(.semibold))
+    }
+}
 
-                Section("Create secure family") {
-                    Button("Create Family & Invite") {
-                        isWorking = true
-                        Task {
-                            inviteURL = await viewModel.createSecureFamilyInvite(context: context)
-                            statusMessage = viewModel.familySyncLastStatusMessage
-                            errorMessage = viewModel.familySyncLastErrorMessage
-                            isWorking = false
-                        }
-                    }
-                    .disabled(!viewModel.familySyncAvailable || isWorking)
-                }
+private struct FamilyStatusPill: View {
+    let title: String
+    let systemImage: String
+    let color: Color
 
-                if viewModel.familySyncOwner, let inviteURL = inviteURL ?? viewModel.familyInviteURL {
-                    Section("Invite partner") {
-                        ShareLink(
-                            item: inviteURL,
-                            preview: SharePreview("KidDose Family Invite")
-                        ) {
-                            Label("Share Invite Link", systemImage: "square.and.arrow.up")
-                        }
-                    }
-                }
-
-                Section("Join partner family") {
-                    Text("Ask your partner to send the CloudKit invite link. After accepting it, tap refresh below.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-
-                    TextField("Paste invite link", text: $inviteLinkText)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-
-                    Button("Accept Invite Link") {
-                        isWorking = true
-                        let trimmed = inviteLinkText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        Task {
-                            guard let url = URL(string: trimmed) else {
-                                errorMessage = "Invalid invite link."
-                                statusMessage = nil
-                                isWorking = false
-                                return
-                            }
-
-                            let accepted = await viewModel.acceptCloudShareURL(url, context: context)
-                            statusMessage = viewModel.familySyncLastStatusMessage
-                            if accepted {
-                                errorMessage = viewModel.familySyncLastErrorMessage
-                                inviteLinkText = ""
-                            } else {
-                                errorMessage = viewModel.familySyncLastErrorMessage
-                                    ?? "Could not accept invite link."
-                            }
-                            isWorking = false
-                        }
-                    }
-                    .disabled(
-                        isWorking
-                            || !viewModel.familySyncAvailable
-                            || inviteLinkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    )
-
-                    Button("Refresh Accepted Invite") {
-                        isWorking = true
-                        Task {
-                            let joined = await viewModel.refreshAcceptedFamily(context: context)
-                            statusMessage = viewModel.familySyncLastStatusMessage
-                            if joined {
-                                errorMessage = viewModel.familySyncLastErrorMessage
-                            } else {
-                                errorMessage = viewModel.familySyncLastErrorMessage
-                                    ?? "No accepted invite found yet."
-                            }
-                            isWorking = false
-                        }
-                    }
-                    .disabled(
-                        isWorking
-                            || !viewModel.familySyncAvailable
-                    )
-                }
-
-                if viewModel.familySyncEnabled {
-                    Section {
-                        Button("Disconnect Family Sync", role: .destructive) {
-                            viewModel.clearFamilySync()
-                            statusMessage = nil
-                            errorMessage = nil
-                            inviteURL = nil
-                        }
-                    }
-                }
-
-                if let statusMessage {
-                    Section("Last sync result") {
-                        Text(statusMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                if let errorMessage {
-                    Section("Last sync error") {
-                        Text(errorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                    }
-                }
-
-                Section("Privacy") {
-                    Toggle(
-                        "Require Face ID / Passcode",
-                        isOn: Binding(
-                            get: { appLock.isEnabled },
-                            set: { appLock.setEnabled($0) }
-                        )
-                    )
-
-                    if appLock.isEnabled {
-                        Text("KidDose will lock when it leaves the foreground.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .navigationTitle("Family Sync")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
+    var body: some View {
+        Label(title, systemImage: systemImage)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.12), in: Capsule())
     }
 }
