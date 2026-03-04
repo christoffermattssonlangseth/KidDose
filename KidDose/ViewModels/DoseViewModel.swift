@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import CloudKit
 import ActivityKit
+import WidgetKit
 
 // MARK: - Scheduled Dose (upcoming)
 
@@ -315,6 +316,7 @@ final class DoseViewModel {
         context.insert(log)
         try? context.save()
         refreshLiveActivity(context: context)
+        updateWidgetData(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertDose(log, context: context)
@@ -406,6 +408,7 @@ final class DoseViewModel {
             context.delete(dose)
             try? context.save()
             refreshLiveActivity(context: context)
+            updateWidgetData(context: context)
             return
         }
 
@@ -416,6 +419,7 @@ final class DoseViewModel {
         context.delete(dose)
         try? context.save()
         refreshLiveActivity(context: context)
+        updateWidgetData(context: context)
 
         if let recordName {
             Task {
@@ -488,6 +492,7 @@ final class DoseViewModel {
         child.setSessionEndedAt(.now, for: medication)
         try? context.save()
         refreshLiveActivity(context: context)
+        updateWidgetData(context: context)
 
         NotificationManager.shared.cancelDoseNotification(
             childName: child.name,
@@ -508,6 +513,7 @@ final class DoseViewModel {
         child.setSessionEndedAt(nil, for: medication)
         try? context.save()
         refreshLiveActivity(context: context)
+        updateWidgetData(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertChild(child, context: context)
@@ -541,6 +547,7 @@ final class DoseViewModel {
         }
         try? context.save()
         refreshLiveActivity(context: context)
+        updateWidgetData(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertChild(child, context: context)
@@ -585,6 +592,29 @@ final class DoseViewModel {
         Task {
             await CloudKitService.shared.setupSubscriptionIfNeeded()
         }
+    }
+
+    // MARK: - Widget Data
+
+    func sendSnapshotsToWatch(context: ModelContext) {
+        updateWidgetData(context: context)
+    }
+
+    private func updateWidgetData(context: ModelContext) {
+        let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+        let snapshots = children.map { child in
+            WidgetChildSnapshot(
+                name: child.name,
+                colorHex: child.colorHex,
+                ibuprofenNextDate: nextAllowedDate(for: .ibuprofen, child: child),
+                paracetamolNextDate: nextAllowedDate(for: .paracetamol, child: child),
+                ibuprofenHasDoses: latestDoseInCurrentCycle(for: .ibuprofen, child: child) != nil,
+                paracetamolHasDoses: latestDoseInCurrentCycle(for: .paracetamol, child: child) != nil
+            )
+        }
+        WidgetDataStore.write(snapshots)
+        PhoneSessionManager.shared.sendSnapshots(snapshots)
+        WidgetCenter.shared.reloadTimelines(ofKind: "KidDoseHomeWidget")
     }
 
     // MARK: - Private Helpers

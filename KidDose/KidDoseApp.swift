@@ -71,6 +71,25 @@ struct KidDoseApp: App {
                         .task {
                             appDelegate.modelContainer = modelContainer
 
+                            // Activate Watch connectivity.
+                            PhoneSessionManager.shared.activate()
+                            PhoneSessionManager.shared.onDoseLogRequest = { childName, medicationRaw, intervalHours in
+                                Task { @MainActor in
+                                    let ctx = modelContainer.mainContext
+                                    let children = (try? ctx.fetch(FetchDescriptor<Child>())) ?? []
+                                    guard
+                                        let child = children.first(where: { $0.name == childName }),
+                                        let medication = Medication(rawValue: medicationRaw)
+                                    else { return }
+                                    viewModel.logDose(medication: medication, intervalHours: intervalHours, for: child, context: ctx)
+                                }
+                            }
+
+                            // Send current snapshots to Watch on launch.
+                            // Small delay lets WCSession finish activating first.
+                            try? await Task.sleep(for: .seconds(2))
+                            viewModel.sendSnapshotsToWatch(context: modelContainer.mainContext)
+
                             // Request notification permission on first launch.
                             await NotificationManager.shared.requestPermission()
 

@@ -5,5 +5,6 @@ import SwiftUI
 struct KidDoseWidgetsBundle: WidgetBundle {
     var body: some Widget {
         KidDoseLiveActivityWidget()
+        KidDoseHomeWidget()
     }
 }

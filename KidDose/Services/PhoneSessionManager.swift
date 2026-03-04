@@ -1,0 +1,109 @@
+import Foundation
+import WatchConnectivity
+
+/// Manages WatchConnectivity on the iPhone side.
+/// The iPhone is the source of truth; it sends snapshots to the Watch
+/// and handles dose-log requests coming back from the Watch.
+final class PhoneSessionManager: NSObject, WCSessionDelegate {
+
+    static let shared = PhoneSessionManager()
+
+    /// Called on the main actor when the Watch requests a dose log.
+    /// Parameters: childName, medicationRawValue, intervalHours
+    var onDoseLogRequest: ((String, String, Double) -> Void)?
+
+    private override init() {
+        super.init()
+    }
+
+    // MARK: - Activation
+
+    func activate() {
+        guard WCSession.isSupported() else { return }
+        WCSession.default.delegate = self
+        WCSession.default.activate()
+    }
+
+    // MARK: - Sending Snapshots
+
+    /// Encodes snapshots as JSON and sends them to the Watch.
+    /// Uses `updateApplicationContext` for background delivery and
+    /// `sendMessage` when the Watch is immediately reachable.
+    func sendSnapshots(_ snapshots: [WidgetChildSnapshot]) {
+        guard WCSession.isSupported() else {
+            print("[PhoneSessionManager] WCSession not supported")
+            return
+        }
+        let session = WCSession.default
+        print("[PhoneSessionManager] sendSnapshots — state: \(session.activationState.rawValue), paired: \(session.isPaired), watchAppInstalled: \(session.isWatchAppInstalled), reachable: \(session.isReachable), snapshotCount: \(snapshots.count)")
+        guard session.activationState == .activated else {
+            print("[PhoneSessionManager] Not activated, skipping send")
+            return
+        }
+
+        guard let data = try? JSONEncoder().encode(snapshots) else { return }
+        let payload: [String: Any] = ["snapshots": data]
+
+        // Background delivery (survives Watch sleep).
+        do {
+            try session.updateApplicationContext(payload)
+            print("[PhoneSessionManager] updateApplicationContext succeeded")
+        } catch {
+            print("[PhoneSessionManager] updateApplicationContext error: \(error)")
+        }
+
+        // Foreground delivery when Watch app is reachable.
+        if session.isReachable {
+            session.sendMessage(payload, replyHandler: nil) { error in
+                print("[PhoneSessionManager] sendMessage error: \(error)")
+            }
+        }
+    }
+
+    // MARK: - WCSessionDelegate
+
+    func session(
+        _ session: WCSession,
+        activationDidCompleteWith activationState: WCSessionActivationState,
+        error: Error?
+    ) {
+        if let error {
+            print("[PhoneSessionManager] Activation error: \(error)")
+        } else {
+            print("[PhoneSessionManager] Activated with state: \(activationState.rawValue)")
+        }
+    }
+
+    func sessionDidBecomeInactive(_ session: WCSession) {}
+    func sessionDidDeactivate(_ session: WCSession) {
+        session.activate()
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        handleIncomingMessage(message)
+    }
+
+    func session(
+        _ session: WCSession,
+        didReceiveMessage message: [String: Any],
+        replyHandler: @escaping ([String: Any]) -> Void
+    ) {
+        handleIncomingMessage(message)
+        replyHandler(["status": "ok"])
+    }
+
+    // MARK: - Private
+
+    private func handleIncomingMessage(_ message: [String: Any]) {
+        guard
+            message["action"] as? String == "logDose",
+            let childName = message["childName"] as? String,
+            let medicationRaw = message["medication"] as? String,
+            let intervalHours = message["intervalHours"] as? Double
+        else { return }
+
+        DispatchQueue.main.async {
+            self.onDoseLogRequest?(childName, medicationRaw, intervalHours)
+        }
+    }
+}

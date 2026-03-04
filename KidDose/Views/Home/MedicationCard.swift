@@ -9,6 +9,7 @@ struct MedicationCard: View {
 
     @State private var selectedInterval: Double
     @State private var feedbackTrigger: Bool = false
+    @State private var showDoseConfirmation: Bool = false
     @State private var showRetroactiveSheet: Bool = false
     @State private var showDoseNoteSheet: Bool = false
     @State private var showAdvancedOptions: Bool = false
@@ -166,15 +167,7 @@ struct MedicationCard: View {
             }
 
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                    feedbackTrigger.toggle()
-                }
-                viewModel.logDose(
-                    medication: medication,
-                    intervalHours: selectedInterval,
-                    for: child,
-                    context: context
-                )
+                showDoseConfirmation = true
             } label: {
                 Label("Give Dose", systemImage: "plus.circle.fill")
                     .frame(maxWidth: .infinity)
@@ -186,6 +179,28 @@ struct MedicationCard: View {
             .tint(isOverdue ? .red : (canGive ? medication.color : .gray))
             .disabled(!canGive)
             .sensoryFeedback(.impact, trigger: feedbackTrigger)
+            .confirmationDialog(
+                "Give \(medication.displayName) to \(child.name)?",
+                isPresented: $showDoseConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Confirm Dose") {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        feedbackTrigger.toggle()
+                    }
+                    viewModel.logDose(
+                        medication: medication,
+                        intervalHours: selectedInterval,
+                        for: child,
+                        context: context
+                    )
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                if let note = visibleDoseNote {
+                    Text(note)
+                }
+            }
 
             DisclosureGroup(isExpanded: $showAdvancedOptions) {
                 VStack(alignment: .leading, spacing: 8) {
