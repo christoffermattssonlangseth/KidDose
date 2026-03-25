@@ -16,6 +16,8 @@
 		50EF746B2F5873C700C6A1DF /* PhoneSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50EF746A2F5873C700C6A1DF /* PhoneSessionManager.swift */; };
 		50EF746E2F5875AC00C6A1DF /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50EF746D2F5875AC00C6A1DF /* WatchConnectivity.framework */; };
 		50EF74702F58760100C6A1DF /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50EF746F2F58760100C6A1DF /* WatchConnectivity.framework */; };
+		50EF74712F58770000C6A1DF /* KidDoseWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 50EF74432F5869E800C6A1DF /* KidDoseWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		50EF74772F58770300C6A1DF /* KidDoseWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 50EF74482F5869E800C6A1DF /* KidDoseWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA000001 /* KidDoseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* KidDoseApp.swift */; };
 		AA000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002 /* AppDelegate.swift */; };
 		AA000003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100003 /* ContentView.swift */; };
@@ -52,6 +54,20 @@
 			remoteGlobalIDString = 50EF74472F5869E800C6A1DF;
 			remoteInfo = "KidDoseWatch Watch App";
 		};
+		50EF74722F58770000C6A1DF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAPROJ001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 50EF74422F5869E800C6A1DF;
+			remoteInfo = KidDoseWatch;
+		};
+		50EF74782F58770300C6A1DF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAPROJ001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 50EF74472F5869E800C6A1DF;
+			remoteInfo = "KidDoseWatch Watch App";
+		};
 		BACIP0001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AAPROJ001 /* Project object */;
@@ -69,6 +85,17 @@
 			dstSubfolderSpec = 16;
 			files = (
 				50EF74492F5869E800C6A1DF /* KidDoseWatch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		50EF74732F58770000C6A1DF /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				50EF74772F58770300C6A1DF /* KidDoseWatch Watch App.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -123,6 +150,7 @@
 		BA100003 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
 		BA100004 /* KidDoseLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidDoseLiveActivityWidget.swift; sourceTree = "<group>"; };
 		BA100005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		BA100006 /* KidDoseWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDoseWidgets.entitlements; sourceTree = "<group>"; };
 		BAPROD001 /* KidDoseLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KidDoseLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -290,6 +318,7 @@
 				BA100001 /* KidDoseWidgetsBundle.swift */,
 				BA100004 /* KidDoseLiveActivityWidget.swift */,
 				BA100005 /* Info.plist */,
+				BA100006 /* KidDoseWidgets.entitlements */,
 			);
 			path = KidDoseWidgets;
 			sourceTree = "<group>";
@@ -355,12 +384,16 @@
 			buildPhases = (
 				AABP0000 /* Sources */,
 				AABP0001 /* Frameworks */,
+				50EF74762F58770200C6A1DF /* Fix Embedded Watch Container Info */,
+				50EF74732F58770000C6A1DF /* Embed Watch Content */,
 				AABP0003 /* Embed App Extensions */,
 				AABP0002 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				50EF74742F58770000C6A1DF /* PBXTargetDependency */,
+				50EF74792F58770300C6A1DF /* PBXTargetDependency */,
 				BATD0001 /* PBXTargetDependency */,
 			);
 			name = KidDose;
@@ -513,11 +546,60 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		50EF74752F58770100C6A1DF /* Fix Watch Container Info */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Fix Watch Container Info";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/libexec/PlistBuddy -c \"Delete :UIDeviceFamily\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" 2>/dev/null || true\n/usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily array\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n/usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily:0 integer 4\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n";
+		};
+		50EF74762F58770200C6A1DF /* Fix Embedded Watch Container Info */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Fix Embedded Watch Container Info";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "WATCH_APP=\"$BUILT_PRODUCTS_DIR/KidDoseWatch.app\"\nWATCH_PLIST=\"$WATCH_APP/Info.plist\"\nif [ -f \"$WATCH_PLIST\" ]; then\n  rm -f \"$WATCH_APP\"/MessagesApplicationStub*.png\n  rm -f \"$WATCH_APP/Assets.car\"\n  /usr/libexec/PlistBuddy -c \"Delete :CFBundleIcons\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Delete :CFBundleIcons~ipad\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Delete :UIDeviceFamily\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily array\" \"$WATCH_PLIST\"\n  /usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily:0 integer 4\" \"$WATCH_PLIST\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXTargetDependency section */
 		50EF744B2F5869E800C6A1DF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 50EF74472F5869E800C6A1DF /* KidDoseWatch Watch App */;
 			targetProxy = 50EF744A2F5869E800C6A1DF /* PBXContainerItemProxy */;
+		};
+		50EF74742F58770000C6A1DF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 50EF74422F5869E800C6A1DF /* KidDoseWatch */;
+			targetProxy = 50EF74722F58770000C6A1DF /* PBXContainerItemProxy */;
+		};
+		50EF74792F58770300C6A1DF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 50EF74472F5869E800C6A1DF /* KidDoseWatch Watch App */;
+			targetProxy = 50EF74782F58770300C6A1DF /* PBXContainerItemProxy */;
 		};
 		BATD0001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -530,33 +612,39 @@
 		50EF74532F5869EA00C6A1DF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				INFOPLIST_KEY_CFBundleDisplayName = KidDoseWatch;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidDose/Resources/KidDoseWatchContainer.Info.plist;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = CML.KidDoseWatch;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER).watch";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,4";
 			};
 			name = Debug;
 		};
 		50EF74542F5869EA00C6A1DF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				INFOPLIST_KEY_CFBundleDisplayName = KidDoseWatch;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidDose/Resources/KidDoseWatchContainer.Info.plist;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = CML.KidDoseWatch;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER).watch";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,4";
 			};
 			name = Release;
 		};
@@ -565,20 +653,19 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "KidDoseWatch Watch App/KidDoseWatch.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = KidDoseWatch;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKWatchOnly = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidDose/Resources/KidDoseWatchApp.Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = CML.KidDoseWatch.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER).watch.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -598,13 +685,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "KidDoseWatch Watch App/KidDoseWatch.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = KidDoseWatch;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKWatchOnly = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidDose/Resources/KidDoseWatchApp.Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -612,7 +698,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = CML.KidDoseWatch.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER).watch.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -681,6 +767,8 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				KIDDOSE_APP_GROUP_IDENTIFIER = "group.$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER)";
+				KIDDOSE_ROOT_BUNDLE_IDENTIFIER = com.christoffermattssonlangseth.kiddose;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -739,6 +827,8 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				KIDDOSE_APP_GROUP_IDENTIFIER = "group.$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER)";
+				KIDDOSE_ROOT_BUNDLE_IDENTIFIER = com.christoffermattssonlangseth.kiddose;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -756,12 +846,13 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KidDose/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.christoffermattssonlangseth.kiddose;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -779,12 +870,13 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KidDose/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.christoffermattssonlangseth.kiddose;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -796,6 +888,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = KidDoseWidgets/KidDoseWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7R6QL53THM;
@@ -808,7 +901,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.christoffermattssonlangseth.kiddose.liveactivity;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER).liveactivity";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
@@ -820,6 +913,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = KidDoseWidgets/KidDoseWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7R6QL53THM;
@@ -832,7 +926,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.christoffermattssonlangseth.kiddose.liveactivity;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER).liveactivity";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;

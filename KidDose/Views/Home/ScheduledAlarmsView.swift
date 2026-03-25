@@ -75,12 +75,17 @@ private struct AlarmRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle()
-                .fill(alarm.medication.color.opacity(0.15))
-                .frame(width: 38, height: 38)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(alarm.medication.color.opacity(0.14))
+                .frame(width: 40, height: 40)
                 .overlay {
                     Image(systemName: alarm.medication.iconName)
-                        .foregroundStyle(alarm.medication.color)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
                 }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -91,7 +96,7 @@ private struct AlarmRow: View {
                         .foregroundStyle(.secondary)
                     Text(alarm.medication.displayName)
                         .font(.subheadline)
-                        .foregroundStyle(alarm.medication.color)
+                        .foregroundStyle(.primary)
                 }
                 Text(formattedFireDate(alarm.fireDate))
                     .font(.caption)
@@ -106,19 +111,33 @@ private struct AlarmRow: View {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(roughCountdown(remaining))
                             .font(.caption.monospacedDigit().bold())
-                            .foregroundStyle(alarm.medication.color)
+                            .foregroundStyle(.primary)
                         Text("remaining")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(alarm.medication.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(.primary.opacity(0.10), lineWidth: 1)
+                    }
                 } else {
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("Overdue")
+                        Label("Overdue", systemImage: "exclamationmark.circle.fill")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.red)
+                            .foregroundStyle(.primary)
                         Text(roughCountdown(-remaining))
                             .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.red)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(.primary.opacity(0.10), lineWidth: 1)
                     }
                 }
             }
