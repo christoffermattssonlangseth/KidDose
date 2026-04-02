@@ -314,7 +314,7 @@ final class DoseViewModel {
             child: child
         )
         context.insert(log)
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
         updateWidgetData(context: context)
 
@@ -359,7 +359,7 @@ final class DoseViewModel {
             for dose in newerDoses {
                 context.delete(dose)
             }
-            try? context.save()
+            saveContext(context)
 
             if !recordNames.isEmpty {
                 Task {
@@ -390,7 +390,7 @@ final class DoseViewModel {
         }
 
         context.delete(child)
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
     }
 
@@ -406,7 +406,7 @@ final class DoseViewModel {
                 }
             }
             context.delete(dose)
-            try? context.save()
+            saveContext(context)
             refreshLiveActivity(context: context)
             updateWidgetData(context: context)
             return
@@ -417,7 +417,7 @@ final class DoseViewModel {
         let recordName = dose.cloudRecordName
 
         context.delete(dose)
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
         updateWidgetData(context: context)
 
@@ -461,7 +461,7 @@ final class DoseViewModel {
     ) {
         guard let latestDose = latestDoseInCurrentCycle(for: medication, child: child) else { return }
         latestDose.usedIntervalHours = intervalHours
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
 
         Task {
@@ -490,7 +490,7 @@ final class DoseViewModel {
         context: ModelContext
     ) {
         child.setSessionEndedAt(.now, for: medication)
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
         updateWidgetData(context: context)
 
@@ -511,7 +511,7 @@ final class DoseViewModel {
         context: ModelContext
     ) {
         child.setSessionEndedAt(nil, for: medication)
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
         updateWidgetData(context: context)
 
@@ -545,7 +545,7 @@ final class DoseViewModel {
                 medication: medication
             )
         }
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
         updateWidgetData(context: context)
 
@@ -645,6 +645,14 @@ final class DoseViewModel {
                 return true
             }
             .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    private func saveContext(_ context: ModelContext) {
+        do {
+            try context.save()
+        } catch {
+            print("[DoseViewModel] Failed to save context: \(error)")
+        }
     }
 
     private func isDoseInCurrentCycle(_ dose: DoseLog, medication: Medication, child: Child) -> Bool {
