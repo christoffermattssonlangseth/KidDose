@@ -60,7 +60,11 @@ private struct ChildRow: View {
     @ViewBuilder
     private var doseBadge: some View {
         let soonest = soonestDoseDate(snapshot: snapshot, now: now)
-        if soonest == nil {
+        if soonest == nil, !hasActiveCourse {
+            Text("—")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        } else if soonest == nil {
             Text("Ready")
                 .font(.caption2.bold())
                 .foregroundStyle(.green)
@@ -72,6 +76,12 @@ private struct ChildRow: View {
         }
     }
 
+    /// True when at least one medication has a dose logged in a course that is still running.
+    private var hasActiveCourse: Bool {
+        (snapshot.ibuprofenHasDoses && !snapshot.isSessionEnded(for: .ibuprofen))
+            || (snapshot.paracetamolHasDoses && !snapshot.isSessionEnded(for: .paracetamol))
+    }
+
     /// Returns the soonest future next-dose date among the two medications,
     /// or nil if at least one is ready now.
     private func soonestDoseDate(snapshot: WidgetChildSnapshot, now: Date) -> Date? {
@@ -80,8 +90,12 @@ private struct ChildRow: View {
             .filter { $0 > now }
 
         // If any medication is ready (nil next date + has doses), show "Ready".
-        let ibuprofenReady = snapshot.ibuprofenHasDoses && (snapshot.ibuprofenNextDate == nil || snapshot.ibuprofenNextDate! <= now)
-        let paracetamolReady = snapshot.paracetamolHasDoses && (snapshot.paracetamolNextDate == nil || snapshot.paracetamolNextDate! <= now)
+        let ibuprofenReady = snapshot.ibuprofenHasDoses
+            && !snapshot.isSessionEnded(for: .ibuprofen)
+            && (snapshot.ibuprofenNextDate == nil || snapshot.ibuprofenNextDate! <= now)
+        let paracetamolReady = snapshot.paracetamolHasDoses
+            && !snapshot.isSessionEnded(for: .paracetamol)
+            && (snapshot.paracetamolNextDate == nil || snapshot.paracetamolNextDate! <= now)
         if ibuprofenReady || paracetamolReady { return nil }
 
         return dates.min()

@@ -13,6 +13,52 @@ struct WidgetChildSnapshot: Codable, Identifiable {
     let ibuprofenHasDoses: Bool
     /// True if at least one paracetamol dose exists in the current cycle.
     let paracetamolHasDoses: Bool
+    /// True when the parent marked the ibuprofen course as skipped/ended ("Dose Skipped" on Home).
+    /// Optional so snapshots written by older app builds still decode.
+    let ibuprofenSessionEnded: Bool?
+    /// True when the parent marked the paracetamol course as skipped/ended.
+    let paracetamolSessionEnded: Bool?
+
+    init(
+        name: String,
+        colorHex: String,
+        ibuprofenNextDate: Date?,
+        paracetamolNextDate: Date?,
+        ibuprofenHasDoses: Bool,
+        paracetamolHasDoses: Bool,
+        ibuprofenSessionEnded: Bool? = nil,
+        paracetamolSessionEnded: Bool? = nil
+    ) {
+        self.name = name
+        self.colorHex = colorHex
+        self.ibuprofenNextDate = ibuprofenNextDate
+        self.paracetamolNextDate = paracetamolNextDate
+        self.ibuprofenHasDoses = ibuprofenHasDoses
+        self.paracetamolHasDoses = paracetamolHasDoses
+        self.ibuprofenSessionEnded = ibuprofenSessionEnded
+        self.paracetamolSessionEnded = paracetamolSessionEnded
+    }
+
+    func nextDate(for medication: Medication) -> Date? {
+        switch medication {
+        case .ibuprofen:    return ibuprofenNextDate
+        case .paracetamol:  return paracetamolNextDate
+        }
+    }
+
+    func hasDoses(for medication: Medication) -> Bool {
+        switch medication {
+        case .ibuprofen:    return ibuprofenHasDoses
+        case .paracetamol:  return paracetamolHasDoses
+        }
+    }
+
+    func isSessionEnded(for medication: Medication) -> Bool {
+        switch medication {
+        case .ibuprofen:    return ibuprofenSessionEnded ?? false
+        case .paracetamol:  return paracetamolSessionEnded ?? false
+        }
+    }
 }
 
 /// Shared data store between the main app and the widget extension via App Groups.
@@ -46,11 +92,18 @@ enum WidgetDataStore {
         return defaults
     }
 
-    static func write(_ snapshots: [WidgetChildSnapshot]) {
-        guard let defaults = sharedDefaults else { return }
-        if let data = try? JSONEncoder().encode(snapshots) {
-            defaults.set(data, forKey: snapshotsKey)
+    /// Persists the snapshots for the widget extension.
+    /// Returns `true` when the stored payload actually changed, so callers can skip
+    /// widget reloads (which are budgeted by iOS) and Watch transfers when nothing moved.
+    @discardableResult
+    static func write(_ snapshots: [WidgetChildSnapshot]) -> Bool {
+        guard let defaults = sharedDefaults else { return false }
+        guard let data = try? JSONEncoder().encode(snapshots) else { return false }
+        if let existing = defaults.data(forKey: snapshotsKey), existing == data {
+            return false
         }
+        defaults.set(data, forKey: snapshotsKey)
+        return true
     }
 
     static func read() -> [WidgetChildSnapshot] {

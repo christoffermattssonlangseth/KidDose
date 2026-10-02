@@ -137,9 +137,11 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         // Detect transitions from "waiting" → "ready" for haptic feedback.
         for new in newSnapshots {
             if let old = oldSnapshots.first(where: { $0.name == new.name }) {
-                let ibuprofenBecameReady = isNowReady(new: new.ibuprofenNextDate, newHas: new.ibuprofenHasDoses,
+                let ibuprofenBecameReady = isNowReady(new: new.ibuprofenNextDate,
+                                                       newHas: new.ibuprofenHasDoses && !new.isSessionEnded(for: .ibuprofen),
                                                        old: old.ibuprofenNextDate, oldHas: old.ibuprofenHasDoses)
-                let paracetamolBecameReady = isNowReady(new: new.paracetamolNextDate, newHas: new.paracetamolHasDoses,
+                let paracetamolBecameReady = isNowReady(new: new.paracetamolNextDate,
+                                                         newHas: new.paracetamolHasDoses && !new.isSessionEnded(for: .paracetamol),
                                                          old: old.paracetamolNextDate, oldHas: old.paracetamolHasDoses)
                 if ibuprofenBecameReady || paracetamolBecameReady {
                     WKInterfaceDevice.current().play(.notification)

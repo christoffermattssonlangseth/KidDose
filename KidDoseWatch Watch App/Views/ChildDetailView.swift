@@ -14,12 +14,14 @@ struct ChildDetailView: View {
                         medication: .ibuprofen,
                         nextDate: snapshot.ibuprofenNextDate,
                         hasDoses: snapshot.ibuprofenHasDoses,
+                        sessionEnded: snapshot.isSessionEnded(for: .ibuprofen),
                         now: context.date
                     )
                     medicationCard(
                         medication: .paracetamol,
                         nextDate: snapshot.paracetamolNextDate,
                         hasDoses: snapshot.paracetamolHasDoses,
+                        sessionEnded: snapshot.isSessionEnded(for: .paracetamol),
                         now: context.date
                     )
                 }
@@ -39,8 +41,8 @@ struct ChildDetailView: View {
     }
 
     @ViewBuilder
-    private func medicationCard(medication: Medication, nextDate: Date?, hasDoses: Bool, now: Date) -> some View {
-        let isReady = hasDoses && (nextDate == nil || nextDate! <= now)
+    private func medicationCard(medication: Medication, nextDate: Date?, hasDoses: Bool, sessionEnded: Bool, now: Date) -> some View {
+        let isReady = hasDoses && !sessionEnded && (nextDate == nil || nextDate! <= now)
         let hasAny = hasDoses || nextDate != nil
 
         HStack(spacing: 8) {
@@ -52,7 +54,11 @@ struct ChildDetailView: View {
                 Text(medication.displayName)
                     .font(.footnote.bold())
 
-                if isReady {
+                if sessionEnded {
+                    Text("Skipped")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                } else if isReady {
                     Text("Ready")
                         .font(.caption2)
                         .foregroundStyle(.green)
@@ -70,7 +76,7 @@ struct ChildDetailView: View {
 
             Spacer()
 
-            if isReady {
+            if isReady || sessionEnded {
                 Button("Give") {
                     logTarget = MedicationLogTarget(medication: medication)
                 }

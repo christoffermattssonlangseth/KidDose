@@ -43,6 +43,7 @@
 		BA000003 /* KidDoseWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100001 /* KidDoseWidgetsBundle.swift */; };
 		BA000004 /* KidDoseLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100004 /* KidDoseLiveActivityWidget.swift */; };
 		BA000005 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
+		BA000007 /* Medication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100012 /* Medication.swift */; };
 		BA000006 /* KidDoseLiveActivityExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = BAPROD001 /* KidDoseLiveActivityExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -541,6 +542,7 @@
 				50EF74682F58725800C6A1DF /* KidDoseHomeWidget.swift in Sources */,
 				BA000005 /* KidDoseLiveActivityAttributes.swift in Sources */,
 				50EF74692F5872E600C6A1DF /* WidgetDataStore.swift in Sources */,
+				BA000007 /* Medication.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -149,9 +149,13 @@ final class DoseViewModel {
         return FamilyCloudSyncService.shared.lastSyncErrorMessage == nil
     }
 
+    /// Refreshes every glanceable surface: Home Screen / Lock Screen widgets, the Watch
+    /// snapshots, and the Live Activity. Cheap to call often; widget reloads and Watch
+    /// transfers only happen when the snapshot data actually changed.
     @MainActor
     func refreshLiveActivity(context: ModelContext) {
         let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+        updateWidgetData(children: children)
         LiveActivityManager.shared.refresh(children: children, using: self)
     }
 
@@ -316,7 +320,6 @@ final class DoseViewModel {
         context.insert(log)
         saveContext(context)
         refreshLiveActivity(context: context)
-        updateWidgetData(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertDose(log, context: context)
@@ -408,7 +411,6 @@ final class DoseViewModel {
             context.delete(dose)
             saveContext(context)
             refreshLiveActivity(context: context)
-            updateWidgetData(context: context)
             return
         }
 
@@ -419,7 +421,6 @@ final class DoseViewModel {
         context.delete(dose)
         saveContext(context)
         refreshLiveActivity(context: context)
-        updateWidgetData(context: context)
 
         if let recordName {
             Task {
@@ -492,7 +493,6 @@ final class DoseViewModel {
         child.setSessionEndedAt(.now, for: medication)
         saveContext(context)
         refreshLiveActivity(context: context)
-        updateWidgetData(context: context)
 
         NotificationManager.shared.cancelDoseNotification(
             childName: child.name,
@@ -513,7 +513,6 @@ final class DoseViewModel {
         child.setSessionEndedAt(nil, for: medication)
         saveContext(context)
         refreshLiveActivity(context: context)
-        updateWidgetData(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertChild(child, context: context)
@@ -547,7 +546,6 @@ final class DoseViewModel {
         }
         saveContext(context)
         refreshLiveActivity(context: context)
-        updateWidgetData(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertChild(child, context: context)
@@ -596,12 +594,14 @@ final class DoseViewModel {
 
     // MARK: - Widget Data
 
+    /// Pushes the current snapshots to the Watch even if nothing changed (used at launch,
+    /// when the Watch may have missed earlier transfers).
     func sendSnapshotsToWatch(context: ModelContext) {
-        updateWidgetData(context: context)
+        let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+        updateWidgetData(children: children, forceDelivery: true)
     }
 
-    private func updateWidgetData(context: ModelContext) {
-        let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+    private func updateWidgetData(children: [Child], forceDelivery: Bool = false) {
         let snapshots = children.map { child in
             WidgetChildSnapshot(
                 name: child.name,
@@ -609,10 +609,13 @@ final class DoseViewModel {
                 ibuprofenNextDate: nextAllowedDate(for: .ibuprofen, child: child),
                 paracetamolNextDate: nextAllowedDate(for: .paracetamol, child: child),
                 ibuprofenHasDoses: latestDoseInCurrentCycle(for: .ibuprofen, child: child) != nil,
-                paracetamolHasDoses: latestDoseInCurrentCycle(for: .paracetamol, child: child) != nil
+                paracetamolHasDoses: latestDoseInCurrentCycle(for: .paracetamol, child: child) != nil,
+                ibuprofenSessionEnded: isMedicationSessionEnded(for: .ibuprofen, child: child),
+                paracetamolSessionEnded: isMedicationSessionEnded(for: .paracetamol, child: child)
             )
         }
-        WidgetDataStore.write(snapshots)
+        let changed = WidgetDataStore.write(snapshots)
+        guard changed || forceDelivery else { return }
         PhoneSessionManager.shared.sendSnapshots(snapshots)
         WidgetCenter.shared.reloadTimelines(ofKind: "KidDoseHomeWidget")
     }
