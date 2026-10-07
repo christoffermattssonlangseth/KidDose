@@ -28,10 +28,10 @@ struct MedicationCard: View {
     }
 
     var nextAllowedDate: Date? { viewModel.nextAllowedDate(for: medication, child: child) }
-    var canGive: Bool {
-        guard let nextAllowedDate else { return true }
-        return Date.now >= nextAllowedDate
-    }
+    /// Counts every dose, so Skip / New Cycle can't unlock Give while a dose is still active.
+    var availability: DoseAvailability { viewModel.doseAvailability(for: medication, child: child) }
+    var canGive: Bool { availability.isAllowed }
+    var maxDailyDoses: Int? { child.maxDailyDoses(for: medication) }
     var isOverdue: Bool {
         guard let nextAllowedDate else { return false }
         return Date.now >= nextAllowedDate
@@ -77,6 +77,7 @@ struct MedicationCard: View {
             noteButton
             sessionEndedLine
             countdownBlock
+            dailyLimitLine
             giveDoseButton
             advancedDrawer
         }
@@ -178,7 +179,7 @@ struct MedicationCard: View {
                 .padding(.vertical, KidDoseLayout.compactVerticalPadding)
                 .kidDoseSubtleSurface()
             } else {
-                Label("Add note", systemImage: "plus")
+                Label("Add note or daily limit", systemImage: "plus")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
@@ -202,11 +203,31 @@ struct MedicationCard: View {
     }
 
     @ViewBuilder private var countdownBlock: some View {
-        if let nextAllowedDate {
-            CountdownView(targetDate: nextAllowedDate, medication: medication)
+        // After Skip / New Cycle there is no scheduled window, but an earlier dose may
+        // still block the next one — count down to that instead.
+        if let target = nextAllowedDate ?? availability.blockedUntil {
+            CountdownView(targetDate: target, medication: medication)
                 .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
                 .padding(.vertical, KidDoseLayout.compactVerticalPadding)
                 .kidDoseSubtleSurface()
+        }
+    }
+
+    @ViewBuilder private var dailyLimitLine: some View {
+        if let maxDailyDoses {
+            let given = viewModel.dosesInLast24h(for: medication, child: child)
+            let limitReached: Bool = {
+                if case .dailyLimitReached = availability { return true }
+                return false
+            }()
+            Label(
+                limitReached
+                    ? "Daily limit reached: \(given) of \(maxDailyDoses) in 24 h"
+                    : "\(given) of \(maxDailyDoses) doses in the last 24 h",
+                systemImage: limitReached ? "exclamationmark.octagon.fill" : "24.circle"
+            )
+            .font(.caption.weight(limitReached ? .semibold : .regular))
+            .foregroundStyle(limitReached ? Color.red : Color.secondary)
         }
     }
 
@@ -229,7 +250,7 @@ struct MedicationCard: View {
         .tint(isOverdue ? .red : (canGive ? medication.color : .gray))
         .disabled(!canGive)
         .accessibilityLabel("Give \(medication.displayName) to \(child.name)")
-        .accessibilityHint(canGive ? "Logs a dose now." : "Disabled until the next dose is allowed.")
+        .accessibilityHint(canGive ? "Logs a dose now." : "Disabled until the next dose is safe.")
         .sensoryFeedback(.impact, trigger: feedbackTrigger)
         .confirmationDialog(
             "Give \(medication.displayName) to \(child.name)?",
@@ -353,7 +374,19 @@ struct MedicationCard: View {
         RetroactiveDoseSheet(
             medication: medication,
             child: child,
-            intervalHours: selectedInterval
+            intervalHours: selectedInterval,
+            newerDoseCount: { timestamp in
+                viewModel.newerDosesInCurrentCycle(than: timestamp, medication: medication, child: child).count
+            },
+            conflicts: { timestamp, setAsLatest in
+                viewModel.pastDoseConflicts(
+                    medication: medication,
+                    intervalHours: selectedInterval,
+                    timestamp: timestamp,
+                    replacingNewer: setAsLatest,
+                    child: child
+                )
+            }
         ) { pastTimestamp, setAsLatest in
             viewModel.logRetroactiveDose(
                 medication: medication,
@@ -370,14 +403,17 @@ struct MedicationCard: View {
         DoseNoteSheet(
             medication: medication,
             childName: child.name,
-            initialNote: doseNote ?? ""
-        ) { newNote in
+            initialNote: doseNote ?? "",
+            initialMaxDailyDoses: maxDailyDoses
+        ) { newNote, newMaxDailyDoses in
             let trimmed = newNote.trimmingCharacters(in: .whitespacesAndNewlines)
-            child.setDoseNote(trimmed.isEmpty ? nil : trimmed, for: medication)
-            try? context.save()
-            Task {
-                await viewModel.syncChildToFamilyCloud(child, context: context)
-            }
+            viewModel.setDoseInstructions(
+                note: trimmed.isEmpty ? nil : trimmed,
+                maxDailyDoses: newMaxDailyDoses,
+                for: medication,
+                child: child,
+                context: context
+            )
         }
     }
 
@@ -398,6 +434,8 @@ private struct RetroactiveDoseSheet: View {
     let medication: Medication
     let child: Child
     let intervalHours: Double
+    let newerDoseCount: (Date) -> Int
+    let conflicts: (Date, Bool) -> [DoseConflict]
     let onSave: (Date, Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -406,7 +444,8 @@ private struct RetroactiveDoseSheet: View {
         value: -1,
         to: .now
     ) ?? .now
-    @State private var setAsLatest = true
+    // Off by default: replacing deletes newer doses (possibly a partner's) on every device.
+    @State private var setAsLatest = false
 
     private var canSave: Bool {
         selectedTimestamp <= .now
@@ -432,12 +471,39 @@ private struct RetroactiveDoseSheet: View {
                 }
 
                 Section {
-                    Toggle("Use as most recent dose", isOn: $setAsLatest)
-                    Text(
-                        "If on, any newer \(medication.displayName.lowercased()) entries for \(child.name) in the current infection cycle will be replaced. Doses from previous cycles are kept."
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Toggle("Replace newer doses", isOn: $setAsLatest)
+                    let newerCount = newerDoseCount(selectedTimestamp)
+                    if setAsLatest, newerCount > 0 {
+                        Label(
+                            "Deletes \(newerCount) newer \(medication.displayName.lowercased()) \(newerCount == 1 ? "dose" : "doses") for \(child.name) on every family device. Only use this to correct a dose logged at the wrong time.",
+                            systemImage: "trash"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    } else {
+                        Text(
+                            "Off: the dose is added to the history and newer doses are kept. On: newer \(medication.displayName.lowercased()) entries in the current infection cycle are deleted."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+
+                let ruleConflicts = conflicts(selectedTimestamp, setAsLatest)
+                if !ruleConflicts.isEmpty {
+                    Section("Check this dose") {
+                        ForEach(Array(ruleConflicts.enumerated()), id: \.offset) { _, conflict in
+                            Label(
+                                conflict.explanation(medicationName: medication.displayName),
+                                systemImage: "exclamationmark.triangle.fill"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                        }
+                        Text("It will still be recorded, because it was already given.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .navigationTitle("Add Past Dose")
@@ -463,21 +529,26 @@ private struct RetroactiveDoseSheet: View {
 private struct DoseNoteSheet: View {
     let medication: Medication
     let childName: String
-    let onSave: (String) -> Void
+    let onSave: (String, Int?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var note: String
+    @State private var limitEnabled: Bool
+    @State private var maxDailyDoses: Int
 
     init(
         medication: Medication,
         childName: String,
         initialNote: String,
-        onSave: @escaping (String) -> Void
+        initialMaxDailyDoses: Int?,
+        onSave: @escaping (String, Int?) -> Void
     ) {
         self.medication = medication
         self.childName = childName
         self.onSave = onSave
         _note = State(initialValue: initialNote)
+        _limitEnabled = State(initialValue: initialMaxDailyDoses != nil)
+        _maxDailyDoses = State(initialValue: initialMaxDailyDoses ?? 4)
     }
 
     var body: some View {
@@ -489,13 +560,23 @@ private struct DoseNoteSheet: View {
                         .autocorrectionDisabled()
                 }
                 Section {
-                    Text("Saved per child and medication. Leave empty to clear.")
+                    Toggle("Limit doses per 24 h", isOn: $limitEnabled.animation())
+                    if limitEnabled {
+                        Stepper("Max \(maxDailyDoses) doses in 24 h", value: $maxDailyDoses, in: 1...8)
+                    }
+                } header: {
+                    Text("Daily limit")
+                } footer: {
+                    Text("Use the maximum from your product's package leaflet or your doctor. KidDose blocks Give Dose once the limit is reached within any 24 hours.")
+                }
+                Section {
+                    Text("Saved per child and medication and shared with your family. Leave the note empty to clear it.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     LabeledContent("Child", value: childName)
                 }
             }
-            .navigationTitle("Dose Note")
+            .navigationTitle("Dose Instructions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -503,7 +584,7 @@ private struct DoseNoteSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        onSave(note)
+                        onSave(note, limitEnabled ? maxDailyDoses : nil)
                         dismiss()
                     }
                 }

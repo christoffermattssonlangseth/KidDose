@@ -70,16 +70,22 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
             return .failed("Install iPhone app first")
         }
 
+        // `requestedAt` is when the dose was actually given; queued transfers can reach the
+        // iPhone much later. `requestID` lets the iPhone drop a duplicate if a failed
+        // interactive send was already delivered before falling back to the queue.
         let message: [String: Any] = [
             "action": "logDose",
+            "requestID": UUID().uuidString,
+            "requestedAt": Date.now,
             "childName": childName,
             "medication": medication,
             "intervalHours": intervalHours
         ]
 
         if session.isReachable {
-            session.sendMessage(message, replyHandler: nil) { error in
-                print("[WatchSessionManager] sendMessage error: \(error)")
+            session.sendMessage(message, replyHandler: { _ in }) { error in
+                print("[WatchSessionManager] sendMessage error, queueing instead: \(error)")
+                session.transferUserInfo(message)
             }
             return .sent
         }

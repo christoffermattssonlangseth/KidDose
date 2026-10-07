@@ -24,17 +24,18 @@ struct KidDoseApp: App {
 
         PhoneSessionManager.shared.activate()
         if let modelContainer {
-            PhoneSessionManager.shared.onDoseLogRequest = { childName, medicationRaw, intervalHours in
+            PhoneSessionManager.shared.onDoseLogRequest = { request in
                 Task { @MainActor in
                     let ctx = modelContainer.mainContext
                     let children = (try? ctx.fetch(FetchDescriptor<Child>())) ?? []
                     guard
-                        let child = children.first(where: { $0.name == childName }),
-                        let medication = Medication(rawValue: medicationRaw)
+                        let child = children.first(where: { $0.name == request.childName }),
+                        let medication = Medication(rawValue: request.medicationRaw)
                     else { return }
-                    initialViewModel.logDose(
+                    initialViewModel.logWatchDose(
                         medication: medication,
-                        intervalHours: intervalHours,
+                        intervalHours: request.intervalHours,
+                        timestamp: request.givenAt,
                         for: child,
                         context: ctx
                     )

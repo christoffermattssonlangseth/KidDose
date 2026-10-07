@@ -168,6 +168,8 @@ final class FamilyCloudSyncService {
         static let childParacetamolSessionEndedAtField = "paracetamolSessionEndedAt"
         static let childIbuprofenCycleStartAtField = "ibuprofenCycleStartAt"
         static let childParacetamolCycleStartAtField = "paracetamolCycleStartAt"
+        static let childIbuprofenMaxDailyDosesField = "ibuprofenMaxDailyDoses"
+        static let childParacetamolMaxDailyDosesField = "paracetamolMaxDailyDoses"
         static let childRecordNameField = "childRecordName"
         static let childFallbackNameField = "childName"
         static let childFallbackColorField = "childColorHex"
@@ -441,6 +443,12 @@ final class FamilyCloudSyncService {
                 let paracetamolSessionEndedAt = record[Constants.childParacetamolSessionEndedAtField] as? Date
                 let ibuprofenCycleStartAt = record[Constants.childIbuprofenCycleStartAtField] as? Date
                 let paracetamolCycleStartAt = record[Constants.childParacetamolCycleStartAtField] as? Date
+                let ibuprofenMaxDailyDoses = normalizeDailyLimit(
+                    record[Constants.childIbuprofenMaxDailyDosesField] as? NSNumber
+                )
+                let paracetamolMaxDailyDoses = normalizeDailyLimit(
+                    record[Constants.childParacetamolMaxDailyDosesField] as? NSNumber
+                )
 
                 if let existing = childrenByRecordName[recordName] {
                     existing.name = name
@@ -451,6 +459,8 @@ final class FamilyCloudSyncService {
                     existing.paracetamolSessionEndedAt = paracetamolSessionEndedAt
                     existing.ibuprofenCycleStartAt = ibuprofenCycleStartAt
                     existing.paracetamolCycleStartAt = paracetamolCycleStartAt
+                    existing.ibuprofenMaxDailyDoses = ibuprofenMaxDailyDoses
+                    existing.paracetamolMaxDailyDoses = paracetamolMaxDailyDoses
                 } else {
                     let child = Child(
                         name: name,
@@ -461,6 +471,8 @@ final class FamilyCloudSyncService {
                         paracetamolSessionEndedAt: paracetamolSessionEndedAt,
                         ibuprofenCycleStartAt: ibuprofenCycleStartAt,
                         paracetamolCycleStartAt: paracetamolCycleStartAt,
+                        ibuprofenMaxDailyDoses: ibuprofenMaxDailyDoses,
+                        paracetamolMaxDailyDoses: paracetamolMaxDailyDoses,
                         cloudRecordName: recordName
                     )
                     context.insert(child)
@@ -594,6 +606,8 @@ final class FamilyCloudSyncService {
         record[Constants.childParacetamolSessionEndedAtField] = child.paracetamolSessionEndedAt as CKRecordValue?
         record[Constants.childIbuprofenCycleStartAtField] = child.ibuprofenCycleStartAt as CKRecordValue?
         record[Constants.childParacetamolCycleStartAtField] = child.paracetamolCycleStartAt as CKRecordValue?
+        record[Constants.childIbuprofenMaxDailyDosesField] = child.ibuprofenMaxDailyDoses.map { $0 as CKRecordValue }
+        record[Constants.childParacetamolMaxDailyDosesField] = child.paracetamolMaxDailyDoses.map { $0 as CKRecordValue }
         record[Constants.updatedAtField] = Date() as CKRecordValue
 
         do {
@@ -934,6 +948,11 @@ final class FamilyCloudSyncService {
         guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func normalizeDailyLimit(_ value: NSNumber?) -> Int? {
+        guard let limit = value?.intValue, limit > 0 else { return nil }
+        return limit
     }
 
     private func fetchShareMetadata(

@@ -15,6 +15,7 @@ struct ChildDetailView: View {
                         nextDate: snapshot.ibuprofenNextDate,
                         hasDoses: snapshot.ibuprofenHasDoses,
                         sessionEnded: snapshot.isSessionEnded(for: .ibuprofen),
+                        blockedUntil: snapshot.blockedUntil(for: .ibuprofen),
                         now: context.date
                     )
                     medicationCard(
@@ -22,6 +23,7 @@ struct ChildDetailView: View {
                         nextDate: snapshot.paracetamolNextDate,
                         hasDoses: snapshot.paracetamolHasDoses,
                         sessionEnded: snapshot.isSessionEnded(for: .paracetamol),
+                        blockedUntil: snapshot.blockedUntil(for: .paracetamol),
                         now: context.date
                     )
                 }
@@ -41,8 +43,18 @@ struct ChildDetailView: View {
     }
 
     @ViewBuilder
-    private func medicationCard(medication: Medication, nextDate: Date?, hasDoses: Bool, sessionEnded: Bool, now: Date) -> some View {
-        let isReady = hasDoses && !sessionEnded && (nextDate == nil || nextDate! <= now)
+    private func medicationCard(
+        medication: Medication,
+        nextDate: Date?,
+        hasDoses: Bool,
+        sessionEnded: Bool,
+        blockedUntil: Date?,
+        now: Date
+    ) -> some View {
+        // Skip / new cycle don't make an earlier dose disappear; the iPhone sends when
+        // another dose is actually safe.
+        let isSafeNow = blockedUntil.map { $0 <= now } ?? true
+        let isReady = hasDoses && !sessionEnded && isSafeNow && (nextDate == nil || nextDate! <= now)
         let hasAny = hasDoses || nextDate != nil
 
         HStack(spacing: 8) {
@@ -58,6 +70,12 @@ struct ChildDetailView: View {
                     Text("Skipped")
                         .font(.caption2)
                         .foregroundStyle(.orange)
+                    if let blockedUntil, blockedUntil > now {
+                        Text("Safe in \(countdownString(until: blockedUntil, now: now))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
                 } else if isReady {
                     Text("Ready")
                         .font(.caption2)
@@ -76,7 +94,7 @@ struct ChildDetailView: View {
 
             Spacer()
 
-            if isReady || sessionEnded {
+            if isReady || (sessionEnded && isSafeNow) {
                 Button("Give") {
                     logTarget = MedicationLogTarget(medication: medication)
                 }

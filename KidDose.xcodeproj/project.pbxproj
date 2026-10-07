@@ -16,7 +16,6 @@
 		50EF746B2F5873C700C6A1DF /* PhoneSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50EF746A2F5873C700C6A1DF /* PhoneSessionManager.swift */; };
 		50EF746E2F5875AC00C6A1DF /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50EF746D2F5875AC00C6A1DF /* WatchConnectivity.framework */; };
 		50EF74702F58760100C6A1DF /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50EF746F2F58760100C6A1DF /* WatchConnectivity.framework */; };
-		50EF74712F58770000C6A1DF /* KidDoseWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 50EF74432F5869E800C6A1DF /* KidDoseWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		50EF74772F58770300C6A1DF /* KidDoseWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 50EF74482F5869E800C6A1DF /* KidDoseWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA000001 /* KidDoseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* KidDoseApp.swift */; };
 		AA000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002 /* AppDelegate.swift */; };
@@ -38,14 +37,16 @@
 		AA000070 /* iCloudBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100070 /* iCloudBanner.swift */; };
 		AA000071 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100071 /* ColorExtensions.swift */; };
 		AA000072 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100072 /* DesignSystem.swift */; };
+		AA000073 /* DoseRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100073 /* DoseRules.swift */; };
 		AA000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA100090 /* Assets.xcassets */; };
 		BA000001 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
 		BA000002 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100003 /* LiveActivityManager.swift */; };
 		BA000003 /* KidDoseWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100001 /* KidDoseWidgetsBundle.swift */; };
 		BA000004 /* KidDoseLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100004 /* KidDoseLiveActivityWidget.swift */; };
 		BA000005 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
-		BA000007 /* Medication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100012 /* Medication.swift */; };
 		BA000006 /* KidDoseLiveActivityExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = BAPROD001 /* KidDoseLiveActivityExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		BA000007 /* Medication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100012 /* Medication.swift */; };
+		TT000001 /* DoseRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100073 /* DoseRules.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -143,6 +144,7 @@
 		AA100070 /* iCloudBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudBanner.swift; sourceTree = "<group>"; };
 		AA100071 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
 		AA100072 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		AA100073 /* DoseRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseRules.swift; sourceTree = "<group>"; };
 		AA100080 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA100081 /* KidDose.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.entitlements; sourceTree = "<group>"; };
 		AA100082 /* KidDose.debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.debug.entitlements; sourceTree = "<group>"; };
@@ -155,10 +157,12 @@
 		BA100005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BA100006 /* KidDoseWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDoseWidgets.entitlements; sourceTree = "<group>"; };
 		BAPROD001 /* KidDoseLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KidDoseLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		TTPROD001 /* KidDoseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KidDoseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		50EF744C2F5869E800C6A1DF /* KidDoseWatch Watch App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "KidDoseWatch Watch App"; sourceTree = "<group>"; };
+		TTSYNC001 /* KidDoseTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = KidDoseTests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -185,6 +189,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		TTBP0001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -203,6 +214,7 @@
 				AAGRP0001 /* KidDose */,
 				AAGRP0014 /* KidDoseWidgets */,
 				50EF744C2F5869E800C6A1DF /* KidDoseWatch Watch App */,
+				TTSYNC001 /* KidDoseTests */,
 				50EF746C2F5875AB00C6A1DF /* Frameworks */,
 				AAGRP00FF /* Products */,
 			);
@@ -240,6 +252,7 @@
 				AA100010 /* Child.swift */,
 				AA100011 /* DoseLog.swift */,
 				AA100012 /* Medication.swift */,
+				AA100073 /* DoseRules.swift */,
 				50EF74642F5870AC00C6A1DF /* WidgetDataStore.swift */,
 				BA100002 /* KidDoseLiveActivityAttributes.swift */,
 			);
@@ -334,6 +347,7 @@
 				BAPROD001 /* KidDoseLiveActivityExtension.appex */,
 				50EF74432F5869E800C6A1DF /* KidDoseWatch.app */,
 				50EF74482F5869E800C6A1DF /* KidDoseWatch Watch App.app */,
+				TTPROD001 /* KidDoseTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -422,6 +436,27 @@
 			productReference = BAPROD001 /* KidDoseLiveActivityExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		TTTGT0001 /* KidDoseTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = TTCFL0001 /* Build configuration list for PBXNativeTarget "KidDoseTests" */;
+			buildPhases = (
+				TTBP0000 /* Sources */,
+				TTBP0001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				TTSYNC001 /* KidDoseTests */,
+			);
+			name = KidDoseTests;
+			packageProductDependencies = (
+			);
+			productName = KidDoseTests;
+			productReference = TTPROD001 /* KidDoseTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -460,6 +495,7 @@
 				BATGT0001 /* KidDoseLiveActivityExtension */,
 				50EF74422F5869E800C6A1DF /* KidDoseWatch */,
 				50EF74472F5869E800C6A1DF /* KidDoseWatch Watch App */,
+				TTTGT0001 /* KidDoseTests */,
 			);
 		};
 /* End PBXProject section */
@@ -496,6 +532,27 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		50EF74762F58770200C6A1DF /* Fix Embedded Watch Container Info */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Fix Embedded Watch Container Info";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "WATCH_APP=\"$BUILT_PRODUCTS_DIR/KidDoseWatch.app\"\nWATCH_PLIST=\"$WATCH_APP/Info.plist\"\nif [ -f \"$WATCH_PLIST\" ]; then\n  rm -f \"$WATCH_APP\"/MessagesApplicationStub*.png\n  rm -f \"$WATCH_APP/Assets.car\"\n  /usr/libexec/PlistBuddy -c \"Delete :CFBundleIcons\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Delete :CFBundleIcons~ipad\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Delete :UIDeviceFamily\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily array\" \"$WATCH_PLIST\"\n  /usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily:0 integer 4\" \"$WATCH_PLIST\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		50EF74442F5869E800C6A1DF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -510,6 +567,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000073 /* DoseRules.swift in Sources */,
 				AA000001 /* KidDoseApp.swift in Sources */,
 				50EF74652F5870AC00C6A1DF /* WidgetDataStore.swift in Sources */,
 				AA000002 /* AppDelegate.swift in Sources */,
@@ -550,46 +608,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		TTBP0000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				TT000001 /* DoseRules.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		50EF74752F58770100C6A1DF /* Fix Watch Container Info */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Fix Watch Container Info";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/usr/libexec/PlistBuddy -c \"Delete :UIDeviceFamily\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" 2>/dev/null || true\n/usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily array\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n/usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily:0 integer 4\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n";
-		};
-		50EF74762F58770200C6A1DF /* Fix Embedded Watch Container Info */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Fix Embedded Watch Container Info";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "WATCH_APP=\"$BUILT_PRODUCTS_DIR/KidDoseWatch.app\"\nWATCH_PLIST=\"$WATCH_APP/Info.plist\"\nif [ -f \"$WATCH_PLIST\" ]; then\n  rm -f \"$WATCH_APP\"/MessagesApplicationStub*.png\n  rm -f \"$WATCH_APP/Assets.car\"\n  /usr/libexec/PlistBuddy -c \"Delete :CFBundleIcons\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Delete :CFBundleIcons~ipad\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Delete :UIDeviceFamily\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily array\" \"$WATCH_PLIST\"\n  /usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily:0 integer 4\" \"$WATCH_PLIST\"\nfi\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		50EF744B2F5869E800C6A1DF /* PBXTargetDependency */ = {
@@ -852,8 +879,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KidDose/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -876,8 +903,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KidDose/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -940,6 +967,36 @@
 			};
 			name = Release;
 		};
+		TTXBC0001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER).tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		TTXBC0002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER).tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -984,6 +1041,15 @@
 			buildConfigurations = (
 				BAXBC0005 /* Debug */,
 				BAXBC0006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		TTCFL0001 /* Build configuration list for PBXNativeTarget "KidDoseTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				TTXBC0001 /* Debug */,
+				TTXBC0002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

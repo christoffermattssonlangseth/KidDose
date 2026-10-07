@@ -12,6 +12,9 @@ final class Child {
     var paracetamolSessionEndedAt: Date?
     var ibuprofenCycleStartAt: Date?
     var paracetamolCycleStartAt: Date?
+    /// Parent-set cap on doses per rolling 24 h, copied from the product label. Nil = no cap.
+    var ibuprofenMaxDailyDoses: Int?
+    var paracetamolMaxDailyDoses: Int?
 
     @Relationship(deleteRule: .cascade, inverse: \DoseLog.child)
     var doses: [DoseLog] = []
@@ -25,6 +28,8 @@ final class Child {
         paracetamolSessionEndedAt: Date? = nil,
         ibuprofenCycleStartAt: Date? = nil,
         paracetamolCycleStartAt: Date? = nil,
+        ibuprofenMaxDailyDoses: Int? = nil,
+        paracetamolMaxDailyDoses: Int? = nil,
         cloudRecordName: String? = nil
     ) {
         self.name = name
@@ -35,6 +40,8 @@ final class Child {
         self.paracetamolSessionEndedAt = paracetamolSessionEndedAt
         self.ibuprofenCycleStartAt = ibuprofenCycleStartAt
         self.paracetamolCycleStartAt = paracetamolCycleStartAt
+        self.ibuprofenMaxDailyDoses = ibuprofenMaxDailyDoses
+        self.paracetamolMaxDailyDoses = paracetamolMaxDailyDoses
         self.cloudRecordName = cloudRecordName
     }
 
@@ -102,6 +109,24 @@ final class Child {
             ibuprofenCycleStartAt = timestamp
         case .paracetamol:
             paracetamolCycleStartAt = timestamp
+        }
+    }
+
+    func maxDailyDoses(for medication: Medication) -> Int? {
+        switch medication {
+        case .ibuprofen:
+            return ibuprofenMaxDailyDoses
+        case .paracetamol:
+            return paracetamolMaxDailyDoses
+        }
+    }
+
+    func setMaxDailyDoses(_ limit: Int?, for medication: Medication) {
+        switch medication {
+        case .ibuprofen:
+            ibuprofenMaxDailyDoses = limit
+        case .paracetamol:
+            paracetamolMaxDailyDoses = limit
         }
     }
 }
