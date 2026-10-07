@@ -184,8 +184,10 @@ struct NextDoseSection: View {
     let additionalCount: Int
     let onViewFullSchedule: () -> Void
 
+    private var childColor: Color { item.child.tintColor }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 Label("Next Dose", systemImage: "clock.badge.checkmark")
                     .font(.subheadline.weight(.semibold))
@@ -202,75 +204,52 @@ struct NextDoseSection: View {
                 .font(.caption.weight(.semibold))
             }
 
-            NextDoseRow(item: item)
-        }
-        .padding(12)
-        .kidDoseCardSurface()
-    }
-}
+            HStack(alignment: .center, spacing: 14) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(item.medication.color.opacity(0.16))
+                    .frame(width: 56, height: 56)
+                    .overlay {
+                        Image(systemName: item.medication.iconName)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(item.medication.color)
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
+                    }
 
-// MARK: - Next Dose Row
-
-private struct NextDoseRow: View {
-    let item: ScheduledDose
-
-    var body: some View {
-        HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(item.medication.color.opacity(0.14))
-                .frame(width: 38, height: 38)
-                .overlay {
-                    Image(systemName: item.medication.iconName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.medication.displayName)
+                        .font(.title3.weight(.bold))
+                    Text("for \(item.child.name)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(formattedTime(item.nextDate))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
                 }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.medication.displayName)
-                    .font(.subheadline.bold())
-                Text(item.child.name)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Text(formattedTime(item.nextDate))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+                Spacer(minLength: 8)
 
-            Spacer()
-
-            TimelineView(.periodic(from: .now, by: 60)) { context in
-                let remaining = item.nextDate.timeIntervalSince(context.date)
-                if remaining > 0 {
-                    Text(roughCountdown(remaining))
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(item.medication.color.opacity(0.12), in: Capsule())
-                        .overlay {
-                            Capsule()
-                                .strokeBorder(.primary.opacity(0.10), lineWidth: 1)
-                        }
-                } else {
-                    Label("Now", systemImage: "checkmark.circle.fill")
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Color.green.opacity(0.12), in: Capsule())
-                        .overlay {
-                            Capsule()
-                                .strokeBorder(.primary.opacity(0.10), lineWidth: 1)
-                        }
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let remaining = item.nextDate.timeIntervalSince(context.date)
+                    if remaining > 0 {
+                        Text(bigCountdown(remaining))
+                            .font(.system(.title, design: .rounded).weight(.bold))
+                            .monospacedDigit()
+                            .foregroundStyle(item.medication.color)
+                            .contentTransition(.numericText(countsDown: true))
+                            .animation(.easeOut(duration: 0.25), value: Int(remaining))
+                    } else {
+                        Label("Now", systemImage: "checkmark.circle.fill")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.green)
+                            .symbolEffect(.bounce, value: remaining <= 0)
+                    }
                 }
             }
         }
-        .padding(.horizontal, 2)
-        .padding(.vertical, 2)
+        .heroSurface(tint: childColor)
     }
 
     private func formattedTime(_ date: Date) -> String {
@@ -291,10 +270,10 @@ private struct NextDoseRow: View {
         }
     }
 
-    private func roughCountdown(_ interval: TimeInterval) -> String {
+    private func bigCountdown(_ interval: TimeInterval) -> String {
         let h = Int(interval) / 3600
         let m = (Int(interval) % 3600) / 60
-        if h > 0 { return "\(h)h \(m)m" }
+        if h > 0 { return "\(h)h \(String(format: "%02d", m))m" }
         return "\(m)m"
     }
 }
@@ -306,7 +285,7 @@ private struct ChildChip: View {
     let isSelected: Bool
     let action: () -> Void
 
-    private var childColor: Color { Color(hex: child.colorHex) }
+    private var childColor: Color { child.tintColor }
 
     var body: some View {
         Button(action: action) {

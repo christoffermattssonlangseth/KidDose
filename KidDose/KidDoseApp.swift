@@ -117,6 +117,13 @@ struct KidDoseApp: App {
                             // Pull family-shared records (if configured) on launch.
                             await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
                             viewModel.refreshLiveActivity(context: modelContainer.mainContext)
+
+                            // Rebuild pending dose-ready notifications from current DB
+                            // state — restores alarms lost to reinstall/reboot and clears
+                            // orphans left behind by renamed children or edited doses.
+                            await viewModel.rescheduleAllDoseNotifications(
+                                context: modelContainer.mainContext
+                            )
                         }
                         .task {
                             while !Task.isCancelled {

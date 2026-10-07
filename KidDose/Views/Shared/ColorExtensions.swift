@@ -91,3 +91,8 @@ extension View {
         modifier(KidDoseSubtleSurfaceModifier(cornerRadius: cornerRadius))
     }
 }
+
+extension Child {
+    /// Convenience so callers don't keep spelling `Color(hex: child.colorHex)`.
+    var tintColor: Color { Color(hex: colorHex) }
+}

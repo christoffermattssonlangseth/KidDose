@@ -61,83 +61,91 @@ struct HistoryView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 8) {
-                VStack(spacing: 8) {
-                    HStack(spacing: 8) {
-                        HistoryModeToggleChip(
-                            title: "Past",
-                            systemImage: "clock.arrow.circlepath",
-                            isOn: showPast,
-                            color: .accentColor
-                        ) {
-                            togglePast()
-                        }
-
-                        HistoryModeToggleChip(
-                            title: "Upcoming",
-                            systemImage: "calendar.badge.clock",
-                            isOn: showUpcoming,
-                            color: .orange
-                        ) {
-                            toggleUpcoming()
-                        }
-
-                        Spacer()
-                    }
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            FilterChip(
-                                label: "All",
-                                isSelected: selectedChildID == nil,
-                                color: .accentColor
-                            ) { selectedChildID = nil }
-
-                            ForEach(visibleChildren) { child in
-                                FilterChip(
-                                    label: child.name,
-                                    isSelected: selectedChildID == child.persistentModelID,
-                                    color: Color(hex: child.colorHex)
-                                ) { selectedChildID = child.persistentModelID }
-                            }
-                        }
-                    }
-                }
-                .padding(10)
-                .kidDoseCardSurface(cornerRadius: 13)
-                .padding(.horizontal)
-
+                filterBar
+                    .padding(.horizontal)
                 contentArea
             }
             .padding(.top, 8)
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        exportFullHistory()
-                    } label: {
-                        Label("Export", systemImage: "square.and.arrow.up")
-                    }
-                    .disabled(allDoses.isEmpty)
-                }
-            }
-            .sheet(item: $exportFile) { file in
-                ActivityShareSheet(activityItems: [file.url])
-            }
-            .alert(
-                "Export history",
-                isPresented: Binding(
-                    get: { exportErrorMessage != nil },
-                    set: { isPresented in
-                        if !isPresented { exportErrorMessage = nil }
-                    }
-                )
-            ) {
+            .toolbar { exportToolbarItem }
+            .sheet(item: $exportFile) { ActivityShareSheet(activityItems: [$0.url]) }
+            .alert("Export history", isPresented: exportErrorPresented) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(exportErrorMessage ?? "Could not export dose history.")
             }
         }
+    }
+
+    // MARK: Subviews
+
+    @ViewBuilder
+    private var filterBar: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                SelectableChip(
+                    label: "Past",
+                    systemImage: "clock.arrow.circlepath",
+                    isSelected: showPast,
+                    tint: .accentColor,
+                    action: togglePast
+                )
+                SelectableChip(
+                    label: "Upcoming",
+                    systemImage: "calendar.badge.clock",
+                    isSelected: showUpcoming,
+                    tint: .orange,
+                    action: toggleUpcoming
+                )
+                Spacer()
+            }
+            childFilterRow
+        }
+        .padding(10)
+        .kidDoseCardSurface(cornerRadius: 13)
+    }
+
+    @ViewBuilder
+    private var childFilterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                SelectableChip(
+                    label: "All",
+                    isSelected: selectedChildID == nil,
+                    tint: .accentColor,
+                    unselectedLabelWeight: .regular
+                ) { selectedChildID = nil }
+
+                ForEach(visibleChildren) { child in
+                    SelectableChip(
+                        label: child.name,
+                        isSelected: selectedChildID == child.persistentModelID,
+                        tint: child.tintColor,
+                        unselectedLabelWeight: .regular
+                    ) { selectedChildID = child.persistentModelID }
+                }
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var exportToolbarItem: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                exportFullHistory()
+            } label: {
+                Label("Export", systemImage: "square.and.arrow.up")
+            }
+            .disabled(allDoses.isEmpty)
+        }
+    }
+
+    private var exportErrorPresented: Binding<Bool> {
+        Binding(
+            get: { exportErrorMessage != nil },
+            set: { if !$0 { exportErrorMessage = nil } }
+        )
     }
 
     @ViewBuilder
@@ -291,15 +299,19 @@ struct HistoryView: View {
         }
 
         do {
-            let fileURL = try writeFullHistoryCSV()
+            let fileURL = try HistoryCSVExporter.makeFile(from: allDoses)
             exportFile = ExportFile(url: fileURL)
         } catch {
             exportErrorMessage = "Could not create CSV export: \(error.localizedDescription)"
         }
     }
+}
 
-    private func writeFullHistoryCSV() throws -> URL {
-        let sortedDoses = allDoses.sorted { $0.timestamp < $1.timestamp }
+// MARK: - CSV Exporter
+
+private enum HistoryCSVExporter {
+    static func makeFile(from doses: [DoseLog]) throws -> URL {
+        let sortedDoses = doses.sorted { $0.timestamp < $1.timestamp }
 
         let timestampFormatter = ISO8601DateFormatter()
         timestampFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -308,8 +320,7 @@ struct HistoryView: View {
         localFormatter.locale = Locale(identifier: "en_US_POSIX")
         localFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss ZZZZ"
 
-        var rows: [String] = []
-        rows.append(
+        var rows: [String] = [
             [
                 "child_name",
                 "medication",
@@ -319,7 +330,7 @@ struct HistoryView: View {
                 "interval_hours",
                 "dose_note"
             ].joined(separator: ",")
-        )
+        ]
 
         for dose in sortedDoses {
             let childName = dose.child?.name ?? "Unknown"
@@ -329,81 +340,46 @@ struct HistoryView: View {
             let interval = dose.usedIntervalHours > 0
                 ? dose.usedIntervalHours
                 : (dose.medicationEnum?.intervalHours ?? 0)
-            let intervalString = formatIntervalHours(interval)
             let note = dose.medicationEnum.flatMap { med in
                 dose.child?.doseNote(for: med)
             } ?? ""
 
             let row = [
-                csvEscape(childName),
-                csvEscape(medication),
-                csvEscape(isoTimestamp),
-                csvEscape(localTimestamp),
-                csvEscape(dose.givenBy),
-                csvEscape(intervalString),
-                csvEscape(note)
+                escape(childName),
+                escape(medication),
+                escape(isoTimestamp),
+                escape(localTimestamp),
+                escape(dose.givenBy),
+                escape(formatIntervalHours(interval)),
+                escape(note)
             ].joined(separator: ",")
             rows.append(row)
         }
 
         let csv = rows.joined(separator: "\n")
-        let fileName = "KidDose-History-\(exportTimestamp()).csv"
+        let fileName = "KidDose-History-\(fileTimestamp()).csv"
         let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
         try csv.write(to: fileURL, atomically: true, encoding: .utf8)
         return fileURL
     }
 
-    private func exportTimestamp() -> String {
+    private static func fileTimestamp() -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         return formatter.string(from: Date())
     }
 
-    private func formatIntervalHours(_ value: Double) -> String {
-        if value == floor(value) {
-            return String(Int(value))
-        }
-        return String(value)
+    private static func formatIntervalHours(_ value: Double) -> String {
+        value == floor(value) ? String(Int(value)) : String(value)
     }
 
-    private func csvEscape(_ value: String) -> String {
+    private static func escape(_ value: String) -> String {
         let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
         if escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n") {
             return "\"\(escaped)\""
         }
         return escaped
-    }
-}
-
-private struct HistoryModeToggleChip: View {
-    let title: String
-    let systemImage: String
-    let isOn: Bool
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: isOn ? "checkmark.circle.fill" : systemImage)
-                    .imageScale(.small)
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-            }
-            .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
-            .padding(.vertical, KidDoseLayout.compactVerticalPadding)
-            .foregroundStyle(isOn ? .primary : .secondary)
-            .background(
-                isOn ? color.opacity(0.16) : Color(.tertiarySystemBackground),
-                in: Capsule()
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(isOn ? color : .primary.opacity(0.08), lineWidth: 1.3)
-            )
-        }
-        .buttonStyle(.plain)
     }
 }
 
@@ -515,34 +491,6 @@ private struct UpcomingHistoryRow: View {
         let m = (Int(interval) % 3600) / 60
         if h > 0 { return "\(h)h \(m)m" }
         return "\(m)m"
-    }
-}
-
-// MARK: - Filter Chip
-
-private struct FilterChip: View {
-    let label: String
-    let isSelected: Bool
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .imageScale(.small)
-                }
-                Text(label)
-                    .font(.subheadline.weight(isSelected ? .semibold : .regular))
-            }
-                .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
-                .padding(.vertical, KidDoseLayout.compactVerticalPadding)
-                .background(isSelected ? color.opacity(0.18) : Color(.tertiarySystemBackground), in: Capsule())
-                .foregroundStyle(isSelected ? .primary : .secondary)
-                .overlay(Capsule().strokeBorder(isSelected ? color : .primary.opacity(0.08), lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
     }
 }
 

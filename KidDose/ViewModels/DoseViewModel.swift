@@ -154,7 +154,7 @@ final class DoseViewModel {
     /// transfers only happen when the snapshot data actually changed.
     @MainActor
     func refreshLiveActivity(context: ModelContext) {
-        let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+        let children = fetchChildren(context)
         updateWidgetData(children: children)
         LiveActivityManager.shared.refresh(children: children, using: self)
     }
@@ -387,9 +387,10 @@ final class DoseViewModel {
 
     @MainActor
     func deleteChild(_ child: Child, context: ModelContext) {
+        let childRecordName = child.cloudRecordName
         let doseRecordNames = child.doses.compactMap(\.cloudRecordName)
         Task {
-            await FamilyCloudSyncService.shared.deleteChild(child, doseRecordNames: doseRecordNames)
+            await FamilyCloudSyncService.shared.deleteChild(childRecordName: childRecordName, doseRecordNames: doseRecordNames)
         }
 
         context.delete(child)
@@ -554,6 +555,28 @@ final class DoseViewModel {
 
     // MARK: - Notifications
 
+    /// Rebuilds every pending dose-ready notification from current state.
+    /// Wipes orphans first so renamed children or stale intervals can't keep firing.
+    @MainActor
+    func rescheduleAllDoseNotifications(context: ModelContext) async {
+        await NotificationManager.shared.cancelAllPendingDoseNotifications()
+
+        let children = fetchChildren(context)
+        for child in children {
+            for medication in Medication.allCases {
+                if isMedicationSessionEnded(for: medication, child: child) { continue }
+                guard let lastDose = latestDoseInCurrentCycle(for: medication, child: child) else { continue }
+                let interval = effectiveInterval(lastDose: lastDose, medication: medication)
+                scheduleNotification(
+                    for: child,
+                    medication: medication,
+                    intervalHours: interval,
+                    from: lastDose.timestamp
+                )
+            }
+        }
+    }
+
     func scheduleNotification(
         for child: Child,
         medication: Medication,
@@ -597,7 +620,7 @@ final class DoseViewModel {
     /// Pushes the current snapshots to the Watch even if nothing changed (used at launch,
     /// when the Watch may have missed earlier transfers).
     func sendSnapshotsToWatch(context: ModelContext) {
-        let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+        let children = fetchChildren(context)
         updateWidgetData(children: children, forceDelivery: true)
     }
 
@@ -655,6 +678,15 @@ final class DoseViewModel {
             try context.save()
         } catch {
             print("[DoseViewModel] Failed to save context: \(error)")
+        }
+    }
+
+    private func fetchChildren(_ context: ModelContext, caller: StaticString = #function) -> [Child] {
+        do {
+            return try context.fetch(FetchDescriptor<Child>())
+        } catch {
+            print("[DoseViewModel] Child fetch failed in \(caller): \(error)")
+            return []
         }
     }
 

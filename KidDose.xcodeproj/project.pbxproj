@@ -37,6 +37,7 @@
 		AA000062 /* CloudSharingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100062 /* CloudSharingController.swift */; };
 		AA000070 /* iCloudBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100070 /* iCloudBanner.swift */; };
 		AA000071 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100071 /* ColorExtensions.swift */; };
+		AA000072 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100072 /* DesignSystem.swift */; };
 		AA000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA100090 /* Assets.xcassets */; };
 		BA000001 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
 		BA000002 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100003 /* LiveActivityManager.swift */; };
@@ -141,6 +142,7 @@
 		AA100062 /* CloudSharingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSharingController.swift; sourceTree = "<group>"; };
 		AA100070 /* iCloudBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudBanner.swift; sourceTree = "<group>"; };
 		AA100071 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
+		AA100072 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		AA100080 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA100081 /* KidDose.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.entitlements; sourceTree = "<group>"; };
 		AA100082 /* KidDose.debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.debug.entitlements; sourceTree = "<group>"; };
@@ -308,6 +310,7 @@
 			children = (
 				AA100070 /* iCloudBanner.swift */,
 				AA100071 /* ColorExtensions.swift */,
+				AA100072 /* DesignSystem.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -530,6 +533,7 @@
 				AA000062 /* CloudSharingController.swift in Sources */,
 				AA000070 /* iCloudBanner.swift in Sources */,
 				AA000071 /* ColorExtensions.swift in Sources */,
+				AA000072 /* DesignSystem.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -104,6 +104,19 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
     }
 
+    /// Clears every pending dose-ready notification. Used at launch before rescheduling
+    /// so we drop orphans from renamed children, reinstalls, or deleted/edited doses.
+    func cancelAllPendingDoseNotifications() async {
+        let center = UNUserNotificationCenter.current()
+        let pending = await center.pendingNotificationRequests()
+        let medicationSuffixes = Medication.allCases.map { "-\($0.rawValue)" }
+        let ids = pending
+            .map(\.identifier)
+            .filter { id in medicationSuffixes.contains(where: id.hasSuffix) }
+        guard !ids.isEmpty else { return }
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+    }
+
     // MARK: - Helpers
 
     func notificationID(childName: String, medication: Medication) -> String {

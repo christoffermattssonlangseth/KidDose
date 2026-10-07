@@ -644,11 +644,11 @@ final class FamilyCloudSyncService {
         }
     }
 
-    func deleteChild(_ child: Child, doseRecordNames: [String]) async {
+    func deleteChild(childRecordName: String?, doseRecordNames: [String]) async {
         guard let db = activeDatabase, let zoneID = activeZoneID else { return }
 
         var idsToDelete: [CKRecord.ID] = []
-        if let childRecordName = child.cloudRecordName {
+        if let childRecordName {
             idsToDelete.append(CKRecord.ID(recordName: childRecordName, zoneID: zoneID))
         }
         for recordName in doseRecordNames {
