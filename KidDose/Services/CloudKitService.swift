@@ -128,8 +128,13 @@ final class CloudKitService {
 
             let medication = record["CD_medication"] as? String ?? "medication"
             let givenBy    = record["CD_givenBy"]    as? String ?? "Partner"
-            let childName  = (record["CD_child"] as? CKRecord.Reference).map { _ in "" } ?? ""
             let timestamp  = record["CD_timestamp"]  as? Date   ?? .now
+
+            var childName = ""
+            if let childRef = record["CD_child"] as? CKRecord.Reference,
+               let childRecord = try? await db.record(for: childRef.recordID) {
+                childName = childRecord["CD_name"] as? String ?? ""
+            }
 
             // Fire a local notification (regular priority — not critical).
             await MainActor.run {

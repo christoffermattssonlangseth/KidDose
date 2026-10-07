@@ -15,3 +15,6 @@ build/
 
 # Local agent tooling
 .claude/
+
+# Environment files
+*.env

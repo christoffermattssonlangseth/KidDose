@@ -96,8 +96,20 @@ final class LiveActivityManager {
         }
     }
 
-    private var activeActivity: Activity<KidDoseLiveActivityAttributes>? {
-        Activity<KidDoseLiveActivityAttributes>.activities.first
+    /// Activities that are still visible and accept updates.
+    ///
+    /// `Activity.activities` also lists activities the user swiped away or that iOS ended
+    /// (after its 8-hour limit). Updating those is a silent no-op, which used to leave the
+    /// Lock Screen empty until the app was relaunched. Only `.active`/`.stale` ones count.
+    private var liveActivities: [Activity<KidDoseLiveActivityAttributes>] {
+        Activity<KidDoseLiveActivityAttributes>.activities.filter { activity in
+            switch activity.activityState {
+            case .active, .stale:
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     private var isAppForegroundActive: Bool {
@@ -115,7 +127,7 @@ final class LiveActivityManager {
             return
         }
 
-        // Preserve real overdue timestamps so widget mirrors Home countdown behavior.
+        // Preserve real overdue timestamps so the widget mirrors Home countdown behavior.
         let upcoming = viewModel.upcomingDoses(for: children, clampToNow: false)
         guard let primary = upcoming.first else {
             lastStatusMessage = "No upcoming doses to show."
@@ -134,7 +146,7 @@ final class LiveActivityManager {
         }
 
         if !shouldShowLiveActivity {
-            if activeActivity != nil {
+            if !liveActivities.isEmpty {
                 endAll()
             }
             let minutesUntilDue = max(Int(ceil(primary.nextDate.timeIntervalSinceNow / 60)), 0)
@@ -167,10 +179,28 @@ final class LiveActivityManager {
             secondaryDoseNote: secondary.flatMap { $0.child.doseNote(for: $0.medication) }
         )
 
-        let staleDate = max(primary.nextDate, Date.now).addingTimeInterval(6 * 3600)
+        // iOS re-renders the Live Activity when `staleDate` passes. Pointing it at the next
+        // dose window is what flips the Lock Screen from a countdown to "Ready" on time,
+        // even while the app is in the background. Nil when nothing is pending in the future.
+        let staleDate = [primary.nextDate, secondary?.nextDate]
+            .compactMap { $0 }
+            .filter { $0.timeIntervalSinceNow > 1 }
+            .min()
         let content = ActivityContent(state: state, staleDate: staleDate)
 
-        if let activity = activeActivity {
+        let activities = liveActivities
+        if let activity = activities.first {
+            // Clean up stray duplicates so only one card is shown.
+            for extra in activities.dropFirst() {
+                Task { await extra.end(nil, dismissalPolicy: .immediate) }
+            }
+
+            if activity.content.state == state && activity.content.staleDate == staleDate {
+                lastStatusMessage = "Live Activity is up to date."
+                lastErrorMessage = nil
+                return
+            }
+
             lastStatusMessage = "Live Activity updated."
             lastErrorMessage = nil
             Task {
@@ -180,7 +210,7 @@ final class LiveActivityManager {
         }
 
         guard isAppForegroundActive else {
-            lastStatusMessage = "Waiting for app to be foreground to start Live Activity."
+            lastStatusMessage = "Live Activity will start the next time KidDose is opened."
             lastErrorMessage = nil
             return
         }

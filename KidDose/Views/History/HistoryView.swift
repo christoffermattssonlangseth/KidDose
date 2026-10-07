@@ -386,21 +386,21 @@ private struct HistoryModeToggleChip: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Image(systemName: systemImage)
+                Image(systemName: isOn ? "checkmark.circle.fill" : systemImage)
                     .imageScale(.small)
                 Text(title)
                     .font(.subheadline.weight(.semibold))
             }
             .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
             .padding(.vertical, KidDoseLayout.compactVerticalPadding)
-            .foregroundStyle(isOn ? color : .secondary)
+            .foregroundStyle(isOn ? .primary : .secondary)
             .background(
                 isOn ? color.opacity(0.16) : Color(.tertiarySystemBackground),
                 in: Capsule()
             )
             .overlay(
                 Capsule()
-                    .strokeBorder(isOn ? color : Color.clear, lineWidth: 1.3)
+                    .strokeBorder(isOn ? color : .primary.opacity(0.08), lineWidth: 1.3)
             )
         }
         .buttonStyle(.plain)
@@ -429,17 +429,20 @@ private struct UpcomingHistoryRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            // Medication badge
-            Circle()
-                .fill(item.medication.color.opacity(0.15))
-                .frame(width: 38, height: 38)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(item.medication.color.opacity(0.14))
+                .frame(width: 40, height: 40)
                 .overlay {
                     Image(systemName: item.medication.iconName)
-                        .foregroundStyle(item.medication.color)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
                 }
 
             VStack(alignment: .leading, spacing: 3) {
-                // Child · Medication
                 HStack {
                     Text(item.child.name)
                         .font(.subheadline.bold())
@@ -447,9 +450,8 @@ private struct UpcomingHistoryRow: View {
                         .foregroundStyle(.secondary)
                     Text(item.medication.displayName)
                         .font(.subheadline)
-                        .foregroundStyle(item.medication.color)
+                        .foregroundStyle(.primary)
                 }
-                // Absolute time label
                 Text(formattedAbsoluteTime(item.nextDate))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -457,22 +459,35 @@ private struct UpcomingHistoryRow: View {
 
             Spacer()
 
-            // Live countdown updating every minute
             TimelineView(.periodic(from: .now, by: 60)) { context in
                 let remaining = item.nextDate.timeIntervalSince(context.date)
                 if remaining > 0 {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(roughCountdown(remaining))
                             .font(.subheadline.monospacedDigit().bold())
-                            .foregroundStyle(item.medication.color)
+                            .foregroundStyle(.primary)
                         Text("remaining")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(item.medication.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(.primary.opacity(0.10), lineWidth: 1)
+                    }
                 } else {
                     Label("Ready", systemImage: "checkmark.circle.fill")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(Color.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(.primary.opacity(0.10), lineWidth: 1)
+                        }
                 }
             }
         }
@@ -513,12 +528,19 @@ private struct FilterChip: View {
 
     var body: some View {
         Button(action: action) {
-            Text(label)
-                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+            HStack(spacing: 6) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .imageScale(.small)
+                }
+                Text(label)
+                    .font(.subheadline.weight(isSelected ? .semibold : .regular))
+            }
                 .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
                 .padding(.vertical, KidDoseLayout.compactVerticalPadding)
                 .background(isSelected ? color.opacity(0.18) : Color(.tertiarySystemBackground), in: Capsule())
-                .overlay(Capsule().strokeBorder(isSelected ? color : .clear, lineWidth: 1.5))
+                .foregroundStyle(isSelected ? .primary : .secondary)
+                .overlay(Capsule().strokeBorder(isSelected ? color : .primary.opacity(0.08), lineWidth: 1.5))
         }
         .buttonStyle(.plain)
     }
@@ -534,7 +556,7 @@ private struct StatsRowView: View {
             ForEach(Medication.allCases, id: \.rawValue) { med in
                 HStack(spacing: 5) {
                     Image(systemName: med.iconName)
-                        .foregroundStyle(med.color)
+                        .foregroundStyle(.primary)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(med.displayName)
                             .font(.caption)
@@ -564,12 +586,17 @@ private struct DoseRowView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle()
-                .fill(medicationColor.opacity(0.15))
-                .frame(width: 38, height: 38)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(medicationColor.opacity(0.14))
+                .frame(width: 40, height: 40)
                 .overlay {
                     Image(systemName: medicationIcon)
-                        .foregroundStyle(medicationColor)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
                 }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -580,7 +607,7 @@ private struct DoseRowView: View {
                         .foregroundStyle(.secondary)
                     Text(dose.medication.capitalized)
                         .font(.subheadline)
-                        .foregroundStyle(medicationColor)
+                        .foregroundStyle(.primary)
                 }
                 HStack(spacing: 4) {
                     Image(systemName: "person.fill")

@@ -11,13 +11,38 @@ struct KidDoseApp: App {
 
     let modelContainer: ModelContainer?
     let startupError: String?
-    @State private var viewModel = DoseViewModel()
+    @State private var viewModel: DoseViewModel
     @State private var appLock = AppLockService()
 
     init() {
         let startup = Self.makeModelContainer()
         modelContainer = startup.container
         startupError = startup.error
+
+        let initialViewModel = DoseViewModel()
+        _viewModel = State(initialValue: initialViewModel)
+
+        PhoneSessionManager.shared.activate()
+        if let modelContainer {
+            PhoneSessionManager.shared.onDoseLogRequest = { childName, medicationRaw, intervalHours in
+                Task { @MainActor in
+                    let ctx = modelContainer.mainContext
+                    let children = (try? ctx.fetch(FetchDescriptor<Child>())) ?? []
+                    guard
+                        let child = children.first(where: { $0.name == childName }),
+                        let medication = Medication(rawValue: medicationRaw)
+                    else { return }
+                    initialViewModel.logDose(
+                        medication: medication,
+                        intervalHours: intervalHours,
+                        for: child,
+                        context: ctx
+                    )
+                }
+            }
+        } else {
+            PhoneSessionManager.shared.onDoseLogRequest = nil
+        }
     }
 
     private static func makeModelContainer() -> (container: ModelContainer?, error: String?) {
@@ -70,20 +95,6 @@ struct KidDoseApp: App {
                         .environment(viewModel)
                         .task {
                             appDelegate.modelContainer = modelContainer
-
-                            // Activate Watch connectivity.
-                            PhoneSessionManager.shared.activate()
-                            PhoneSessionManager.shared.onDoseLogRequest = { childName, medicationRaw, intervalHours in
-                                Task { @MainActor in
-                                    let ctx = modelContainer.mainContext
-                                    let children = (try? ctx.fetch(FetchDescriptor<Child>())) ?? []
-                                    guard
-                                        let child = children.first(where: { $0.name == childName }),
-                                        let medication = Medication(rawValue: medicationRaw)
-                                    else { return }
-                                    viewModel.logDose(medication: medication, intervalHours: intervalHours, for: child, context: ctx)
-                                }
-                            }
 
                             // Send current snapshots to Watch on launch.
                             // Small delay lets WCSession finish activating first.

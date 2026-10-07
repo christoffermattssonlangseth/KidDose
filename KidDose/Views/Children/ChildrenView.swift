@@ -78,7 +78,7 @@ struct ChildrenView: View {
                     sharingButton
                 }
 
-                Section("Live Activity") {
+                Section {
                     SettingsStatusRow(
                         title: "Device status",
                         value: viewModel.liveActivitiesEnabledOnDevice ? "Enabled" : "Disabled",
@@ -166,6 +166,10 @@ struct ChildrenView: View {
                         SettingsInfoText(liveActivityError)
                             .textSelection(.enabled)
                     }
+                } header: {
+                    Text("Live Activity")
+                } footer: {
+                    Text("Shows the next dose on the Lock Screen and in the Dynamic Island. iOS ends a Live Activity after 8 hours; KidDose starts a new one the next time you open the app. You can also add KidDose widgets to the Lock Screen from Settings → Wallpaper → Customize.")
                 }
 
                 Section("Privacy") {

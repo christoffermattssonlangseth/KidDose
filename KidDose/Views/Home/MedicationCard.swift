@@ -85,7 +85,7 @@ struct MedicationCard: View {
                     .font(.subheadline.weight(.semibold))
                 Spacer()
                 if isSessionEnded {
-                    Label("Cycle Ended", systemImage: "pause.circle.fill")
+                    Label("Dose Skipped", systemImage: "forward.circle.fill")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.orange)
                 } else if isOverdue {
@@ -151,9 +151,9 @@ struct MedicationCard: View {
 
             if let sessionEndedAt {
                 HStack(spacing: 6) {
-                    Image(systemName: "pause.circle")
+                    Image(systemName: "forward.circle")
                         .foregroundStyle(.orange)
-                    Text("Cycle ended \(relativeTimestamp(for: sessionEndedAt, now: .now))")
+                    Text("Dose skipped \(relativeTimestamp(for: sessionEndedAt, now: .now))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -263,8 +263,8 @@ struct MedicationCard: View {
                             }
                         } label: {
                             Label(
-                                isSessionEnded ? "Restart Cycle" : "End Cycle",
-                                systemImage: isSessionEnded ? "play.circle" : "pause.circle"
+                                isSessionEnded ? "Resume Tracking" : "Skip Dose",
+                                systemImage: isSessionEnded ? "play.circle" : "forward.circle"
                             )
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)

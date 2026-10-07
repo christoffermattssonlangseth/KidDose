@@ -10,6 +10,8 @@ A SwiftUI iOS app for tracking ibuprofen and paracetamol doses for multiple chil
 - Critical Alert notifications that bypass Silent Mode / Do Not Disturb
 - Cross-device notifications: "Partner gave Paracetamol to Emma at 3:14 AM"
 - Live countdown timers to next allowed dose
+- Lock Screen Live Activity + Dynamic Island with the next dose window (flips to "Ready" on time, even in the background)
+- Home Screen widgets (small / medium) and Lock Screen widgets (circular / rectangular / inline)
 - Full history with per-child/per-medication filters and stats
 - Swipe-to-delete children (cascade deletes all dose history)
 - Dark mode support

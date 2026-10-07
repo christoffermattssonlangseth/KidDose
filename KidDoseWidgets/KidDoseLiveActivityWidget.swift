@@ -2,25 +2,28 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
+// MARK: - Widget
+
 struct KidDoseLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: KidDoseLiveActivityAttributes.self) { context in
             LockScreenLiveActivityView(state: context.state)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
                 .activityBackgroundTint(Color(.systemBackground))
                 .activitySystemActionForegroundColor(.accentColor)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
+                    let primary = context.state.primaryItem
                     HStack(spacing: 6) {
-                        Image(systemName: context.state.primaryMedicationSymbol)
+                        Image(systemName: primary.symbol)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(medicationColor(for: context.state.primaryMedicationName))
+                            .foregroundStyle(primary.color)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(context.state.primaryMedicationName)
+                            Text(primary.medicationName)
                                 .font(.caption.weight(.semibold))
-                            Text(context.state.primaryChildName)
+                            Text(primary.childName)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -28,264 +31,311 @@ struct KidDoseLiveActivityWidget: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    let primaryTiming = timingState(for: context.state.primaryNextDose)
-                    let timerColor = countdownColor(
-                        for: context.state.primaryMedicationName,
-                        timing: primaryTiming
-                    )
-                    Group {
-                        if primaryTiming == .ready {
-                            Text("now")
-                        } else {
-                            Text(context.state.primaryNextDose, style: .timer)
-                        }
-                    }
-                    .font(islandTimerFont(large: context.state.preferLargeText ?? false))
-                    .foregroundStyle(timerColor)
+                    let primary = context.state.primaryItem
+                    let phase = primary.phase(at: .now)
+                    CountdownText(item: primary, phase: phase, now: .now)
+                        .font(islandTimerFont(large: context.state.preferLargeText ?? false))
+                        .foregroundStyle(phase.tint(for: primary))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: 92, alignment: .trailing)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    if
-                        let secondaryMedicationName = context.state.secondaryMedicationName,
-                        let secondaryChildName = context.state.secondaryChildName,
-                        let secondaryNextDose = context.state.secondaryNextDose
-                    {
-                        HStack(spacing: 8) {
-                            Text("\(secondaryMedicationName) · \(secondaryChildName)")
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(.secondary)
-                            Spacer(minLength: 6)
-                            let secondaryTiming = timingState(for: secondaryNextDose)
-                            let secondaryColor = countdownColor(
-                                for: secondaryMedicationName,
-                                timing: secondaryTiming
-                            )
-                            if secondaryTiming == .ready {
-                                Text("now")
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(secondaryColor)
-                            } else {
-                                Text(secondaryNextDose, style: .timer)
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(secondaryColor)
-                            }
-                        }
+                    if let secondary = context.state.secondaryItem {
+                        SecondaryDoseRow(item: secondary, now: .now, showsNote: false)
                     } else {
+                        let primary = context.state.primaryItem
                         HStack {
-                            Text("KidDose")
+                            Text(primary.phase(at: .now) == .upcoming ? "Ready" : "Ready since")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                             Spacer(minLength: 6)
-                            Text(context.state.primaryNextDose, format: .dateTime.hour().minute())
+                            Text(timestampLabel(for: primary.nextDose))
                                 .font(.caption2.monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }
                     }
                 }
             } compactLeading: {
-                Image(systemName: context.state.primaryMedicationSymbol)
+                let primary = context.state.primaryItem
+                Image(systemName: primary.symbol)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(medicationColor(for: context.state.primaryMedicationName))
+                    .foregroundStyle(primary.color)
             } compactTrailing: {
-                let primaryTiming = timingState(for: context.state.primaryNextDose)
-                let timerColor = countdownColor(
-                    for: context.state.primaryMedicationName,
-                    timing: primaryTiming
-                )
-                Group {
-                    if primaryTiming == .ready {
-                        Text("now")
-                    } else {
-                        Text(context.state.primaryNextDose, style: .timer)
-                    }
-                }
-                .font((context.state.preferLargeText ?? false) ? .caption.monospacedDigit() : .caption2.monospacedDigit())
-                .foregroundStyle(timerColor)
+                let primary = context.state.primaryItem
+                let phase = primary.phase(at: .now)
+                CountdownText(item: primary, phase: phase, now: .now)
+                    .font((context.state.preferLargeText ?? false) ? .caption.monospacedDigit() : .caption2.monospacedDigit())
+                    .foregroundStyle(phase.tint(for: primary))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(maxWidth: 60, alignment: .trailing)
             } minimal: {
-                Image(systemName: context.state.primaryMedicationSymbol)
-                    .foregroundStyle(medicationColor(for: context.state.primaryMedicationName))
+                let primary = context.state.primaryItem
+                let phase = primary.phase(at: .now)
+                Image(systemName: phase == .upcoming ? primary.symbol : "checkmark.circle.fill")
+                    .foregroundStyle(phase.tint(for: primary))
             }
+            .keylineTint(context.state.primaryItem.color)
         }
     }
 }
+
+// MARK: - Lock Screen Banner
 
 private struct LockScreenLiveActivityView: View {
     let state: KidDoseLiveActivityAttributes.ContentState
 
     var body: some View {
-        let primaryColor = medicationColor(for: state.primaryMedicationName)
-        let primaryTiming = timingState(for: state.primaryNextDose)
-        let primaryTimerColor = countdownColor(for: state.primaryMedicationName, timing: primaryTiming)
+        // The view is rendered when the app pushes an update and again when the
+        // activity's `staleDate` passes (the manager sets that to the next due time),
+        // so evaluating "now" here is enough to flip waiting → ready on time.
+        let now = Date.now
+        let primary = state.primaryItem
+        let phase = primary.phase(at: now)
+        let tint = phase.tint(for: primary)
         let isCompact = (state.preferredLayoutStyle ?? "detailed") == "compact"
         let timerFont = countdownFont(large: state.preferLargeText ?? false)
-        let primaryStatus = statusText(
-            lastDose: state.primaryLastDose,
-            intervalHours: state.primaryIntervalHours,
-            nextDose: state.primaryNextDose,
-            timing: primaryTiming
-        )
-        let primaryProgress = progressValue(
-            lastDose: state.primaryLastDose,
-            intervalHours: state.primaryIntervalHours,
-            nextDose: state.primaryNextDose
-        )
 
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 7) {
-                Image(systemName: state.primaryMedicationSymbol)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(primaryColor)
-                Text("\(state.primaryMedicationName) · \(state.primaryChildName)")
-                    .font(.subheadline.weight(.semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            // Header: medication + child, status badge on the right.
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(primary.color.opacity(0.16))
+                    .frame(width: 26, height: 26)
+                    .overlay {
+                        Image(systemName: primary.symbol)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(primary.color)
+                    }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(primary.medicationName) · \(primary.childName)")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    if !isCompact, let detail = primary.detailLine {
+                        Text(detail)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
                 Spacer(minLength: 8)
-                Text(state.primaryNextDose, format: .dateTime.hour().minute())
+                StatusBadge(phase: phase, tint: tint)
+            }
+
+            // Countdown row.
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                if let prefix = phase.prefix {
+                    Text(prefix)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                CountdownText(item: primary, phase: phase, now: now, readyLabel: "Ready now")
+                    .font(timerFont)
+                    .foregroundStyle(tint)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Spacer(minLength: 8)
+                Text(phase == .upcoming ? "at \(timestampLabel(for: primary.nextDose))" : "since \(timestampLabel(for: primary.nextDose))")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(prefixText(for: primaryTiming))
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                if primaryTiming == .ready {
-                    Text("now")
-                        .font(timerFont)
-                        .foregroundStyle(primaryTimerColor)
-                } else {
-                    Text(state.primaryNextDose, style: .timer)
-                        .font(timerFont)
-                        .foregroundStyle(primaryTimerColor)
-                }
-                Spacer(minLength: 8)
-                Text(primaryStatus)
-                    .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(primaryTimerColor.opacity(0.14), in: Capsule())
-                    .foregroundStyle(primaryTimerColor)
+            // Live progress through the dosing interval.
+            if !isCompact, let lastDose = primary.lastDose, lastDose < primary.nextDose {
+                ProgressView(
+                    timerInterval: lastDose...primary.nextDose,
+                    countsDown: false,
+                    label: { EmptyView() },
+                    currentValueLabel: { EmptyView() }
+                )
+                .progressViewStyle(.linear)
+                .tint(tint)
             }
 
-            if !isCompact {
-                if let primaryProgress {
-                    FullWidthProgressBar(value: primaryProgress, tint: primaryTimerColor)
-                }
-
-                HStack(spacing: 6) {
-                    if let intervalHours = state.primaryIntervalHours {
-                        InfoChip(text: "Every \(Int(intervalHours.rounded()))h")
-                    }
-
-                    if let note = sanitizedNote(state.primaryDoseNote) {
-                        InfoChip(text: note)
-                    }
-
-                    Spacer(minLength: 8)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            if
-                let secondaryMedicationName = state.secondaryMedicationName,
-                let secondaryChildName = state.secondaryChildName,
-                let secondaryNextDose = state.secondaryNextDose
-            {
-                let secondaryTiming = timingState(for: secondaryNextDose)
-                let secondaryColor = countdownColor(for: secondaryMedicationName, timing: secondaryTiming)
-                HStack(spacing: 6) {
-                    Text("\(secondaryMedicationName) · \(secondaryChildName)")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    if !isCompact, let secondaryNote = sanitizedNote(state.secondaryDoseNote) {
-                        InfoChip(text: secondaryNote)
-                    }
-                    Spacer(minLength: 8)
-                    Text(timestampLabel(for: secondaryNextDose))
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                    if secondaryTiming == .overdue {
-                        Text("Overdue by")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.red)
-                    }
-                    if secondaryTiming == .ready {
-                        Text("now")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(secondaryColor)
-                    } else {
-                        Text(secondaryNextDose, style: .timer)
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(secondaryColor)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
-            } else {
-                HStack {
-                    Text("No secondary medication countdown")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 8)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+            if let secondary = state.secondaryItem {
+                SecondaryDoseRow(item: secondary, now: now, showsNote: !isCompact)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-private struct FullWidthProgressBar: View {
-    let value: Double
+// MARK: - Secondary Row
+
+private struct SecondaryDoseRow: View {
+    let item: DoseItem
+    let now: Date
+    let showsNote: Bool
+
+    var body: some View {
+        let phase = item.phase(at: now)
+        let tint = phase.tint(for: item)
+        HStack(spacing: 6) {
+            Image(systemName: item.symbol)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(item.color)
+            Text("\(item.medicationName) · \(item.childName)")
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+            if showsNote, let note = item.note {
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            if phase == .overdue {
+                Text("Overdue")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(tint)
+            }
+            CountdownText(item: item, phase: phase, now: now)
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Building Blocks
+
+/// The live part of every surface. Counts down while waiting (and stops at 0:00 instead
+/// of counting up), shows "Now" when ready, and counts up while overdue.
+private struct CountdownText: View {
+    let item: DoseItem
+    let phase: DosePhase
+    let now: Date
+    var readyLabel: String = "Now"
+
+    var body: some View {
+        switch phase {
+        case .upcoming:
+            Text(timerInterval: min(now, item.nextDose)...item.nextDose, countsDown: true)
+        case .ready:
+            Text(readyLabel)
+        case .overdue:
+            Text(item.nextDose, style: .timer)
+        }
+    }
+}
+
+private struct StatusBadge: View {
+    let phase: DosePhase
     let tint: Color
 
-    var clampedValue: Double {
-        min(max(value, 0), 1)
-    }
-
     var body: some View {
-        GeometryReader { geometry in
-            let width = max(geometry.size.width, 0)
-            let fillWidth = width * clampedValue
-
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color(.tertiarySystemFill))
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(tint)
-                    .frame(width: fillWidth)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 4)
-    }
-}
-
-private struct InfoChip: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.caption2)
-            .lineLimit(1)
-            .padding(.horizontal, 7)
+        Text(phase.badgeTitle)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(Color(.tertiarySystemBackground), in: Capsule())
-            .foregroundStyle(.secondary)
+            .background(tint.opacity(0.14), in: Capsule())
+            .foregroundStyle(tint)
     }
 }
 
-private func medicationColor(for medicationName: String) -> Color {
-    switch medicationName.lowercased() {
-    case "ibuprofen":
-        return .orange
-    case "paracetamol":
-        return Color(red: 0.10, green: 0.28, blue: 0.72)
-    default:
-        return .accentColor
+// MARK: - Model Helpers
+
+private enum DosePhase: Equatable {
+    case upcoming
+    case ready
+    case overdue
+
+    var prefix: String? {
+        switch self {
+        case .upcoming: return "Next dose in"
+        case .ready:    return nil
+        case .overdue:  return "Overdue by"
+        }
+    }
+
+    var badgeTitle: String {
+        switch self {
+        case .upcoming: return "Waiting"
+        case .ready:    return "Ready"
+        case .overdue:  return "Overdue"
+        }
+    }
+
+    func tint(for item: DoseItem) -> Color {
+        switch self {
+        case .upcoming: return item.color
+        case .ready:    return .green
+        case .overdue:  return .red
+        }
+    }
+}
+
+private struct DoseItem {
+    let childName: String
+    let medicationName: String
+    let symbol: String
+    let nextDose: Date
+    let lastDose: Date?
+    let intervalHours: Double?
+    let note: String?
+
+    var color: Color {
+        Medication(rawValue: medicationName.lowercased())?.color ?? .accentColor
+    }
+
+    /// "Every 8h · 6 ml"
+    var detailLine: String? {
+        var parts: [String] = []
+        if let intervalHours, intervalHours > 0 {
+            parts.append("Every \(Int(intervalHours.rounded()))h")
+        }
+        if let note {
+            parts.append(note)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    /// Mirrors the Home screen: waiting until the window opens, "ready" for the
+    /// first minute, then overdue.
+    func phase(at now: Date) -> DosePhase {
+        let remaining = nextDose.timeIntervalSince(now)
+        if remaining > 0.5 { return .upcoming }
+        if remaining > -60 { return .ready }
+        return .overdue
+    }
+}
+
+private extension KidDoseLiveActivityAttributes.ContentState {
+    var primaryItem: DoseItem {
+        DoseItem(
+            childName: primaryChildName,
+            medicationName: primaryMedicationName,
+            symbol: primaryMedicationSymbol,
+            nextDose: primaryNextDose,
+            lastDose: primaryLastDose,
+            intervalHours: primaryIntervalHours,
+            note: sanitizedNote(primaryDoseNote)
+        )
+    }
+
+    var secondaryItem: DoseItem? {
+        guard
+            let secondaryChildName,
+            let secondaryMedicationName,
+            let secondaryNextDose
+        else { return nil }
+        return DoseItem(
+            childName: secondaryChildName,
+            medicationName: secondaryMedicationName,
+            symbol: secondaryMedicationSymbol ?? "pills.fill",
+            nextDose: secondaryNextDose,
+            lastDose: secondaryLastDose,
+            intervalHours: secondaryIntervalHours,
+            note: sanitizedNote(secondaryDoseNote)
+        )
     }
 }
 
@@ -304,87 +354,16 @@ private func islandTimerFont(large: Bool) -> Font {
     large ? .title3.monospacedDigit().weight(.semibold) : .headline.monospacedDigit()
 }
 
-private enum DoseTimingState {
-    case upcoming
-    case ready
-    case overdue
-}
-
-private func timingState(for nextDose: Date) -> DoseTimingState {
-    let remaining = nextDose.timeIntervalSinceNow
-    if remaining > 0.5 { return .upcoming }
-    if remaining > -60 { return .ready }
-    return .overdue
-}
-
-private func countdownColor(for medicationName: String, timing: DoseTimingState) -> Color {
-    switch timing {
-    case .upcoming:
-        return medicationColor(for: medicationName)
-    case .ready:
-        return .green
-    case .overdue:
-        return .red
-    }
-}
-
-private func prefixText(for timing: DoseTimingState) -> String {
-    switch timing {
-    case .upcoming:
-        return "in"
-    case .ready:
-        return "ready"
-    case .overdue:
-        return "Overdue by"
-    }
-}
-
-private func statusText(
-    lastDose: Date?,
-    intervalHours: Double?,
-    nextDose: Date,
-    timing: DoseTimingState
-) -> String {
-    if timing == .overdue {
-        return "Overdue"
-    }
-    if timing == .ready {
-        return "Ready"
-    }
-
-    guard
-        let lastDose,
-        let intervalHours
-    else {
-        return Date.now >= nextDose ? "Ready" : "Scheduled"
-    }
-
-    let readyAt = lastDose.addingTimeInterval(intervalHours * 3600)
-    return Date.now >= readyAt ? "Ready" : "Waiting"
-}
-
-private func progressValue(lastDose: Date?, intervalHours: Double?, nextDose: Date) -> Double? {
-    guard
-        let lastDose,
-        let intervalHours,
-        intervalHours > 0
-    else { return nil }
-
-    let readyAt = lastDose.addingTimeInterval(intervalHours * 3600)
-    let total = readyAt.timeIntervalSince(lastDose)
-    guard total > 0 else { return nil }
-
-    let elapsed = Date.now.timeIntervalSince(lastDose)
-    return min(max(elapsed / total, 0), 1)
-}
-
 private func timestampLabel(for date: Date) -> String {
     let calendar = Calendar.current
     if calendar.isDateInToday(date) {
         return date.formatted(.dateTime.hour().minute())
     }
     if calendar.isDateInTomorrow(date) {
-        return "Tomorrow \(date.formatted(.dateTime.hour().minute()))"
+        return "tomorrow \(date.formatted(.dateTime.hour().minute()))"
+    }
+    if calendar.isDateInYesterday(date) {
+        return "yesterday \(date.formatted(.dateTime.hour().minute()))"
     }
     return date.formatted(.dateTime.month().day().hour().minute())
 }

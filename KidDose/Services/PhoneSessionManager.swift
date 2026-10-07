@@ -6,11 +6,23 @@ import WatchConnectivity
 /// and handles dose-log requests coming back from the Watch.
 final class PhoneSessionManager: NSObject, WCSessionDelegate {
 
+    private struct PendingDoseLogRequest {
+        let childName: String
+        let medicationRaw: String
+        let intervalHours: Double
+    }
+
     static let shared = PhoneSessionManager()
 
     /// Called on the main actor when the Watch requests a dose log.
     /// Parameters: childName, medicationRawValue, intervalHours
-    var onDoseLogRequest: ((String, String, Double) -> Void)?
+    var onDoseLogRequest: ((String, String, Double) -> Void)? {
+        didSet {
+            flushPendingDoseLogRequests()
+        }
+    }
+
+    private var pendingDoseLogRequests: [PendingDoseLogRequest] = []
 
     private override init() {
         super.init()
@@ -80,7 +92,7 @@ final class PhoneSessionManager: NSObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        handleIncomingMessage(message)
+        handleIncomingPayload(message)
     }
 
     func session(
@@ -88,13 +100,17 @@ final class PhoneSessionManager: NSObject, WCSessionDelegate {
         didReceiveMessage message: [String: Any],
         replyHandler: @escaping ([String: Any]) -> Void
     ) {
-        handleIncomingMessage(message)
+        handleIncomingPayload(message)
         replyHandler(["status": "ok"])
+    }
+
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
+        handleIncomingPayload(userInfo)
     }
 
     // MARK: - Private
 
-    private func handleIncomingMessage(_ message: [String: Any]) {
+    private func handleIncomingPayload(_ message: [String: Any]) {
         guard
             message["action"] as? String == "logDose",
             let childName = message["childName"] as? String,
@@ -103,7 +119,28 @@ final class PhoneSessionManager: NSObject, WCSessionDelegate {
         else { return }
 
         DispatchQueue.main.async {
-            self.onDoseLogRequest?(childName, medicationRaw, intervalHours)
+            if let onDoseLogRequest = self.onDoseLogRequest {
+                onDoseLogRequest(childName, medicationRaw, intervalHours)
+            } else {
+                self.pendingDoseLogRequests.append(
+                    PendingDoseLogRequest(
+                        childName: childName,
+                        medicationRaw: medicationRaw,
+                        intervalHours: intervalHours
+                    )
+                )
+            }
+        }
+    }
+
+    private func flushPendingDoseLogRequests() {
+        guard let onDoseLogRequest, !pendingDoseLogRequests.isEmpty else { return }
+
+        let pendingRequests = pendingDoseLogRequests
+        pendingDoseLogRequests.removeAll()
+
+        for request in pendingRequests {
+            onDoseLogRequest(request.childName, request.medicationRaw, request.intervalHours)
         }
     }
 }

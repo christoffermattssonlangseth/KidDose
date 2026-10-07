@@ -3,7 +3,6 @@
     "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Personal Team-compatible debug entitlements (no iCloud / push). -->
     <key>com.apple.security.application-groups</key>
     <array>
         <string>$(KIDDOSE_APP_GROUP_IDENTIFIER)</string>

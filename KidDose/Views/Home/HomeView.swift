@@ -216,12 +216,17 @@ private struct NextDoseRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle()
-                .fill(item.medication.color.opacity(0.15))
-                .frame(width: 34, height: 34)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(item.medication.color.opacity(0.14))
+                .frame(width: 38, height: 38)
                 .overlay {
                     Image(systemName: item.medication.iconName)
-                        .foregroundStyle(item.medication.color)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
                 }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -242,17 +247,25 @@ private struct NextDoseRow: View {
                 if remaining > 0 {
                     Text(roughCountdown(remaining))
                         .font(.caption.monospacedDigit())
-                        .foregroundStyle(item.medication.color)
+                        .foregroundStyle(.primary)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(item.medication.color.opacity(0.12), in: Capsule())
+                        .overlay {
+                            Capsule()
+                                .strokeBorder(.primary.opacity(0.10), lineWidth: 1)
+                        }
                 } else {
-                    Text("now")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.green)
+                    Label("Now", systemImage: "checkmark.circle.fill")
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.primary)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(Color.green.opacity(0.12), in: Capsule())
+                        .overlay {
+                            Capsule()
+                                .strokeBorder(.primary.opacity(0.10), lineWidth: 1)
+                        }
                 }
             }
         }
@@ -293,26 +306,38 @@ private struct ChildChip: View {
     let isSelected: Bool
     let action: () -> Void
 
+    private var childColor: Color { Color(hex: child.colorHex) }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(Color(hex: child.colorHex))
-                    .frame(width: 10, height: 10)
+                    .fill(childColor.opacity(isSelected ? 0.95 : 0.18))
+                    .frame(width: 22, height: 22)
+                    .overlay {
+                        Text(String(child.name.prefix(1)).uppercased())
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(isSelected ? .white : .primary)
+                    }
                 Text(child.name)
                     .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .imageScale(.small)
+                        .foregroundStyle(.primary)
+                }
             }
             .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
             .padding(.vertical, KidDoseLayout.compactVerticalPadding)
             .background(
                 isSelected
-                    ? Color(hex: child.colorHex).opacity(0.2)
+                    ? childColor.opacity(0.2)
                     : Color(.secondarySystemBackground),
                 in: Capsule()
             )
             .overlay(
                 Capsule()
-                    .strokeBorder(isSelected ? Color(hex: child.colorHex) : .clear, lineWidth: 1.5)
+                    .strokeBorder(isSelected ? childColor : .primary.opacity(0.10), lineWidth: 1.5)
             )
         }
         .buttonStyle(.plain)

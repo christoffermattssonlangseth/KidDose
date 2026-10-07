@@ -3,6 +3,32 @@ import WatchConnectivity
 import WidgetKit
 import WatchKit
 
+enum DoseLogRequestResult {
+    case sent
+    case queued
+    case failed(String)
+
+    var feedbackText: String {
+        switch self {
+        case .sent:
+            return "Sent ✓"
+        case .queued:
+            return "Queued ✓"
+        case let .failed(message):
+            return message
+        }
+    }
+
+    var isSuccess: Bool {
+        switch self {
+        case .sent, .queued:
+            return true
+        case .failed:
+            return false
+        }
+    }
+}
+
 /// Manages WatchConnectivity on the Watch side.
 /// Receives snapshots from the iPhone, updates the UI, and sends dose-log requests back.
 @Observable
@@ -10,9 +36,10 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
     static let shared = WatchSessionManager()
 
-    var snapshots: [WidgetChildSnapshot] = []
+    var snapshots: [WidgetChildSnapshot]
 
     private override init() {
+        snapshots = WidgetDataStore.read()
         super.init()
     }
 
@@ -27,13 +54,20 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
     // MARK: - Sending Dose Requests
 
     /// Sends a dose-log request to the iPhone.
-    func requestDoseLog(childName: String, medication: String, intervalHours: Double) {
-        guard WCSession.isSupported(),
-              WCSession.default.activationState == .activated,
-              WCSession.default.isReachable
-        else {
-            print("[WatchSessionManager] iPhone not reachable")
-            return
+    /// Uses interactive messaging when reachable and falls back to background transfer otherwise.
+    func requestDoseLog(childName: String, medication: String, intervalHours: Double) -> DoseLogRequestResult {
+        guard WCSession.isSupported() else {
+            return .failed("Watch sync unavailable")
+        }
+
+        let session = WCSession.default
+        guard session.activationState == .activated else {
+            session.activate()
+            return .failed("Connecting to iPhone")
+        }
+
+        guard session.isCompanionAppInstalled else {
+            return .failed("Install iPhone app first")
         }
 
         let message: [String: Any] = [
@@ -42,9 +76,17 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
             "medication": medication,
             "intervalHours": intervalHours
         ]
-        WCSession.default.sendMessage(message, replyHandler: nil) { error in
-            print("[WatchSessionManager] sendMessage error: \(error)")
+
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil) { error in
+                print("[WatchSessionManager] sendMessage error: \(error)")
+            }
+            return .sent
         }
+
+        session.transferUserInfo(message)
+        print("[WatchSessionManager] queued background dose-log request")
+        return .queued
     }
 
     // MARK: - WCSessionDelegate
@@ -95,9 +137,11 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         // Detect transitions from "waiting" → "ready" for haptic feedback.
         for new in newSnapshots {
             if let old = oldSnapshots.first(where: { $0.name == new.name }) {
-                let ibuprofenBecameReady = isNowReady(new: new.ibuprofenNextDate, newHas: new.ibuprofenHasDoses,
+                let ibuprofenBecameReady = isNowReady(new: new.ibuprofenNextDate,
+                                                       newHas: new.ibuprofenHasDoses && !new.isSessionEnded(for: .ibuprofen),
                                                        old: old.ibuprofenNextDate, oldHas: old.ibuprofenHasDoses)
-                let paracetamolBecameReady = isNowReady(new: new.paracetamolNextDate, newHas: new.paracetamolHasDoses,
+                let paracetamolBecameReady = isNowReady(new: new.paracetamolNextDate,
+                                                         newHas: new.paracetamolHasDoses && !new.isSessionEnded(for: .paracetamol),
                                                          old: old.paracetamolNextDate, oldHas: old.paracetamolHasDoses)
                 if ibuprofenBecameReady || paracetamolBecameReady {
                     WKInterfaceDevice.current().play(.notification)

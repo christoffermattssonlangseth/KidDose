@@ -149,9 +149,13 @@ final class DoseViewModel {
         return FamilyCloudSyncService.shared.lastSyncErrorMessage == nil
     }
 
+    /// Refreshes every glanceable surface: Home Screen / Lock Screen widgets, the Watch
+    /// snapshots, and the Live Activity. Cheap to call often; widget reloads and Watch
+    /// transfers only happen when the snapshot data actually changed.
     @MainActor
     func refreshLiveActivity(context: ModelContext) {
         let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+        updateWidgetData(children: children)
         LiveActivityManager.shared.refresh(children: children, using: self)
     }
 
@@ -314,9 +318,8 @@ final class DoseViewModel {
             child: child
         )
         context.insert(log)
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
-        updateWidgetData(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertDose(log, context: context)
@@ -359,7 +362,7 @@ final class DoseViewModel {
             for dose in newerDoses {
                 context.delete(dose)
             }
-            try? context.save()
+            saveContext(context)
 
             if !recordNames.isEmpty {
                 Task {
@@ -390,7 +393,7 @@ final class DoseViewModel {
         }
 
         context.delete(child)
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
     }
 
@@ -406,9 +409,8 @@ final class DoseViewModel {
                 }
             }
             context.delete(dose)
-            try? context.save()
+            saveContext(context)
             refreshLiveActivity(context: context)
-            updateWidgetData(context: context)
             return
         }
 
@@ -417,9 +419,8 @@ final class DoseViewModel {
         let recordName = dose.cloudRecordName
 
         context.delete(dose)
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
-        updateWidgetData(context: context)
 
         if let recordName {
             Task {
@@ -461,7 +462,7 @@ final class DoseViewModel {
     ) {
         guard let latestDose = latestDoseInCurrentCycle(for: medication, child: child) else { return }
         latestDose.usedIntervalHours = intervalHours
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
 
         Task {
@@ -490,9 +491,8 @@ final class DoseViewModel {
         context: ModelContext
     ) {
         child.setSessionEndedAt(.now, for: medication)
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
-        updateWidgetData(context: context)
 
         NotificationManager.shared.cancelDoseNotification(
             childName: child.name,
@@ -511,9 +511,8 @@ final class DoseViewModel {
         context: ModelContext
     ) {
         child.setSessionEndedAt(nil, for: medication)
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
-        updateWidgetData(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertChild(child, context: context)
@@ -545,9 +544,8 @@ final class DoseViewModel {
                 medication: medication
             )
         }
-        try? context.save()
+        saveContext(context)
         refreshLiveActivity(context: context)
-        updateWidgetData(context: context)
 
         Task {
             await FamilyCloudSyncService.shared.upsertChild(child, context: context)
@@ -596,12 +594,14 @@ final class DoseViewModel {
 
     // MARK: - Widget Data
 
+    /// Pushes the current snapshots to the Watch even if nothing changed (used at launch,
+    /// when the Watch may have missed earlier transfers).
     func sendSnapshotsToWatch(context: ModelContext) {
-        updateWidgetData(context: context)
+        let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+        updateWidgetData(children: children, forceDelivery: true)
     }
 
-    private func updateWidgetData(context: ModelContext) {
-        let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+    private func updateWidgetData(children: [Child], forceDelivery: Bool = false) {
         let snapshots = children.map { child in
             WidgetChildSnapshot(
                 name: child.name,
@@ -609,10 +609,13 @@ final class DoseViewModel {
                 ibuprofenNextDate: nextAllowedDate(for: .ibuprofen, child: child),
                 paracetamolNextDate: nextAllowedDate(for: .paracetamol, child: child),
                 ibuprofenHasDoses: latestDoseInCurrentCycle(for: .ibuprofen, child: child) != nil,
-                paracetamolHasDoses: latestDoseInCurrentCycle(for: .paracetamol, child: child) != nil
+                paracetamolHasDoses: latestDoseInCurrentCycle(for: .paracetamol, child: child) != nil,
+                ibuprofenSessionEnded: isMedicationSessionEnded(for: .ibuprofen, child: child),
+                paracetamolSessionEnded: isMedicationSessionEnded(for: .paracetamol, child: child)
             )
         }
-        WidgetDataStore.write(snapshots)
+        let changed = WidgetDataStore.write(snapshots)
+        guard changed || forceDelivery else { return }
         PhoneSessionManager.shared.sendSnapshots(snapshots)
         WidgetCenter.shared.reloadTimelines(ofKind: "KidDoseHomeWidget")
     }
@@ -645,6 +648,14 @@ final class DoseViewModel {
                 return true
             }
             .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    private func saveContext(_ context: ModelContext) {
+        do {
+            try context.save()
+        } catch {
+            print("[DoseViewModel] Failed to save context: \(error)")
+        }
     }
 
     private func isDoseInCurrentCycle(_ dose: DoseLog, medication: Medication, child: Child) -> Bool {
