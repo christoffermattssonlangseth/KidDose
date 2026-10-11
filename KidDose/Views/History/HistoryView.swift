@@ -15,6 +15,7 @@ struct HistoryView: View {
     @State private var selectedChildID: PersistentIdentifier? = nil   // nil = All
     @State private var exportFile: ExportFile?
     @State private var exportErrorMessage: String?
+    @State private var selectedDose: DoseLog?
 
     // MARK: Computed
     private var visibleChildren: [Child] {
@@ -121,6 +122,9 @@ struct HistoryView: View {
                     .disabled(allDoses.isEmpty)
                 }
             }
+            .navigationDestination(item: $selectedDose) { dose in
+                DoseDetailView(dose: dose, onDelete: deleteFromDetail)
+            }
             .sheet(item: $exportFile) { file in
                 ActivityShareSheet(activityItems: [file.url])
             }
@@ -173,7 +177,7 @@ struct HistoryView: View {
         } else {
             List {
                 ForEach(filteredDoses) { dose in
-                    DoseRowView(dose: dose)
+                    doseRow(dose)
                         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
@@ -245,7 +249,7 @@ struct HistoryView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(filteredDoses) { dose in
-                        DoseRowView(dose: dose)
+                        doseRow(dose)
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
@@ -257,6 +261,17 @@ struct HistoryView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(Color.clear)
+    }
+
+    private func doseRow(_ dose: DoseLog) -> some View {
+        Button {
+            selectedDose = dose
+        } label: {
+            DoseRowView(dose: dose)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows the exact time and details for this dose")
     }
 
     // MARK: Toggle helpers
@@ -280,6 +295,15 @@ struct HistoryView: View {
             return current[index]
         }
         for dose in targets {
+            viewModel.deleteDose(dose, context: context)
+        }
+    }
+
+    /// Pops the detail screen first, then deletes, so the detail view never renders a deleted model.
+    private func deleteFromDetail(_ dose: DoseLog) {
+        selectedDose = nil
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
             viewModel.deleteDose(dose, context: context)
         }
     }
@@ -609,6 +633,7 @@ private struct DoseRowView: View {
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                 }
+                .lineLimit(1)
                 HStack(spacing: 4) {
                     Image(systemName: "person.fill")
                         .imageScale(.small)
@@ -629,16 +654,34 @@ private struct DoseRowView: View {
 
             Spacer()
 
-            TimelineView(.periodic(from: .now, by: 60)) { context in
-                Text(relativeTimestamp(for: dose.timestamp, now: context.date))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.trailing)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(exactTimeLabel(dose.timestamp))
+                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    Text(relativeTimestamp(for: dose.timestamp, now: context.date))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .multilineTextAlignment(.trailing)
+            .fixedSize()
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .kidDoseSubtleSurface(cornerRadius: 12)
+    }
+
+    /// "14:32" today, "Yesterday 14:32", otherwise "Sat 4 Oct 14:32".
+    private func exactTimeLabel(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let time = date.formatted(date: .omitted, time: .shortened)
+        if calendar.isDateInToday(date) { return time }
+        if calendar.isDateInYesterday(date) { return "Yesterday \(time)" }
+        return "\(date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))) \(time)"
     }
 
     private func relativeTimestamp(for timestamp: Date, now: Date) -> String {
