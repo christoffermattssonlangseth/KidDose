@@ -32,7 +32,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 10) {
+                VStack(spacing: 14) {
 
                     // iCloud banner
                     if !viewModel.iCloudAvailable {
@@ -43,39 +43,15 @@ struct HomeView: View {
                         EmptyStateView(isWaitingForFamilyChildren: isWaitingForFamilyChildren)
                     } else {
                         // ── Child selector ──────────────────────────────
-                        if visibleChildren.count >= 4 {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(visibleChildren) { child in
-                                        ChildChip(
-                                            child: child,
-                                            isSelected: resolvedSelectedChildID == child.persistentModelID
-                                        ) {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                selectedChildID = child.persistentModelID
-                                            }
-                                        }
-                                    }
-                                }
-                                .padding(.horizontal)
-                            }
-                        } else if visibleChildren.count >= 2 {
-                            Picker(
-                                "Child",
-                                selection: Binding<PersistentIdentifier?>(
-                                    get: { selectedChildID },
-                                    set: { newValue in
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            selectedChildID = newValue
-                                        }
-                                    }
-                                )
-                            ) {
-                                ForEach(visibleChildren) { child in
-                                    Text(child.name).tag(Optional<PersistentIdentifier>(child.persistentModelID))
+                        if visibleChildren.count >= 2 {
+                            ChildSwitcher(
+                                children: visibleChildren,
+                                selectedID: resolvedSelectedChildID
+                            ) { id in
+                                withAnimation(.snappy) {
+                                    selectedChildID = id
                                 }
                             }
-                            .pickerStyle(.segmented)
                             .padding(.horizontal)
                         }
 
@@ -85,12 +61,17 @@ struct HomeView: View {
                             if let next = upcoming.first {
                                 NextDoseSection(
                                     item: next,
+                                    lastDoseAt: viewModel.latestDoseInCurrentCycle(
+                                        for: next.medication,
+                                        child: next.child
+                                    )?.timestamp,
                                     additionalCount: max(0, upcoming.count - 1)
                                 ) {
                                     showFullSchedule = true
                                 }
                                 .padding(.horizontal)
-                                .transition(.opacity)
+                                .transition(.blurReplace)
+                                .kidDoseScrollDepth()
                             }
 
                             // ── Medication cards ────────────────────────────
@@ -99,10 +80,11 @@ struct HomeView: View {
                             VStack(spacing: 8) {
                                 ForEach(Medication.allCases, id: \.rawValue) { med in
                                     MedicationCard(medication: med, child: child)
+                                        .kidDoseScrollDepth()
                                 }
                             }
                             .id(child.persistentModelID)
-                            .transition(.opacity)
+                            .transition(.blurReplace)
                             .padding(.horizontal)
 
                             Button {
@@ -113,9 +95,10 @@ struct HomeView: View {
                                     .padding(.vertical, KidDoseLayout.compactVerticalPadding)
                                     .font(.subheadline.weight(.semibold))
                             }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
+                            .kidDoseSecondaryButton()
+                            .controlSize(.regular)
                             .padding(.horizontal)
+                            .padding(.top, 4)
                         }
                     }
                 }
@@ -129,6 +112,7 @@ struct HomeView: View {
                         showAlarms = true
                     } label: {
                         Image(systemName: "bell.badge")
+                            .symbolRenderingMode(.hierarchical)
                     }
                 }
             }
@@ -177,170 +161,183 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Next Dose
+// MARK: - Next Dose (hero)
 
 struct NextDoseSection: View {
     let item: ScheduledDose
+    var lastDoseAt: Date? = nil
     let additionalCount: Int
     let onViewFullSchedule: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Label("Next Dose", systemImage: "clock.badge.checkmark")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                if additionalCount > 0 {
-                    Text("+\(additionalCount) more")
-                        .font(.caption)
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let remaining = item.nextDate.timeIntervalSince(context.date)
+            let isReady = remaining <= 0
+            let tint: Color = isReady ? .green : item.medication.color
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("NEXT DOSE")
+                        .font(.caption.weight(.bold))
+                        .tracking(1.2)
                         .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("View all") {
-                    onViewFullSchedule()
-                }
-                .font(.caption.weight(.semibold))
-            }
-
-            NextDoseRow(item: item)
-        }
-        .padding(12)
-        .kidDoseCardSurface()
-    }
-}
-
-// MARK: - Next Dose Row
-
-private struct NextDoseRow: View {
-    let item: ScheduledDose
-
-    var body: some View {
-        HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(item.medication.color.opacity(0.14))
-                .frame(width: 38, height: 38)
-                .overlay {
-                    Image(systemName: item.medication.iconName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
-                }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.medication.displayName)
-                    .font(.subheadline.bold())
-                Text(item.child.name)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Text(formattedTime(item.nextDate))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            TimelineView(.periodic(from: .now, by: 60)) { context in
-                let remaining = item.nextDate.timeIntervalSince(context.date)
-                if remaining > 0 {
-                    Text(roughCountdown(remaining))
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(item.medication.color.opacity(0.12), in: Capsule())
-                        .overlay {
-                            Capsule()
-                                .strokeBorder(.primary.opacity(0.10), lineWidth: 1)
+                    if additionalCount > 0 {
+                        Text("+\(additionalCount) more")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.tertiary)
+                    }
+                    Spacer()
+                    Button {
+                        onViewFullSchedule()
+                    } label: {
+                        HStack(spacing: 3) {
+                            Text("Schedule")
+                            Image(systemName: "chevron.right")
+                                .font(.caption2.weight(.bold))
                         }
-                } else {
-                    Label("Now", systemImage: "checkmark.circle.fill")
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Color.green.opacity(0.12), in: Capsule())
-                        .overlay {
-                            Capsule()
-                                .strokeBorder(.primary.opacity(0.10), lineWidth: 1)
+                        .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 18) {
+                    DoseProgressRing(
+                        progress: isReady
+                            ? 1
+                            : KidDoseTime.progress(
+                                start: lastDoseAt ?? item.nextDate.addingTimeInterval(-item.intervalHours * 3600),
+                                end: item.nextDate,
+                                now: context.date
+                            ),
+                        tint: tint,
+                        lineWidth: 9
+                    ) {
+                        Image(systemName: isReady ? "checkmark" : item.medication.iconName)
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(tint)
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .frame(width: 84, height: 84)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Group {
+                            if isReady {
+                                Text("Ready")
+                            } else {
+                                Text(KidDoseTime.timer(remaining))
+                                    .contentTransition(.numericText(countsDown: true))
+                                    .animation(.snappy, value: Int(remaining))
+                            }
                         }
+                        .font(.system(size: 40, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(isReady ? .green : .primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+
+                        Text("\(item.medication.displayName) · \(item.child.name)")
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                        Text(formattedTime(item.nextDate))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer(minLength: 0)
                 }
             }
+            .padding(16)
+            .kidDoseCardSurface(cornerRadius: 26)
+            .accessibilityElement(children: .combine)
         }
-        .padding(.horizontal, 2)
-        .padding(.vertical, 2)
     }
 
     private func formattedTime(_ date: Date) -> String {
         let cal = Calendar.current
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        let timeStr = formatter.string(from: date)
-
+        let timeStr = date.formatted(date: .omitted, time: .shortened)
         if cal.isDateInToday(date) {
             return "Today at \(timeStr)"
         } else if cal.isDateInTomorrow(date) {
             return "Tomorrow at \(timeStr)"
         } else {
-            let dayFormatter = DateFormatter()
-            dayFormatter.dateFormat = "EEE"
-            return "\(dayFormatter.string(from: date)) at \(timeStr)"
+            return "\(date.formatted(.dateTime.weekday(.abbreviated))) at \(timeStr)"
         }
-    }
-
-    private func roughCountdown(_ interval: TimeInterval) -> String {
-        let h = Int(interval) / 3600
-        let m = (Int(interval) % 3600) / 60
-        if h > 0 { return "\(h)h \(m)m" }
-        return "\(m)m"
     }
 }
 
-// MARK: - Child Chip (for 4+ children)
+// MARK: - Child Switcher
 
-private struct ChildChip: View {
-    let child: Child
-    let isSelected: Bool
-    let action: () -> Void
+/// Avatar bar with a selection highlight that slides between children.
+/// Up to three children share the width like a segmented control; more scroll.
+private struct ChildSwitcher: View {
+    let children: [Child]
+    let selectedID: PersistentIdentifier?
+    let onSelect: (PersistentIdentifier) -> Void
 
-    private var childColor: Color { Color(hex: child.colorHex) }
+    @Namespace private var selection
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
+        Group {
+            if children.count <= 3 {
+                HStack(spacing: 4) {
+                    ForEach(children) { child in
+                        item(for: child, fillsWidth: true)
+                    }
+                }
+                .padding(4)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 4) {
+                        ForEach(children) { child in
+                            item(for: child, fillsWidth: false)
+                        }
+                    }
+                    .padding(4)
+                }
+            }
+        }
+        .kidDoseGlass(in: Capsule())
+        .sensoryFeedback(.selection, trigger: selectedID)
+    }
+
+    private func item(for child: Child, fillsWidth: Bool) -> some View {
+        let isSelected = child.persistentModelID == selectedID
+        let childColor = Color(hex: child.colorHex)
+
+        return Button {
+            onSelect(child.persistentModelID)
+        } label: {
+            HStack(spacing: 7) {
                 Circle()
-                    .fill(childColor.opacity(isSelected ? 0.95 : 0.18))
-                    .frame(width: 22, height: 22)
+                    .fill(childColor.opacity(isSelected ? 0.95 : 0.22))
+                    .frame(width: 26, height: 26)
                     .overlay {
                         Text(String(child.name.prefix(1)).uppercased())
-                            .font(.caption2.weight(.bold))
+                            .font(.caption.weight(.bold))
                             .foregroundStyle(isSelected ? .white : .primary)
                     }
                 Text(child.name)
-                    .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                    .font(.subheadline.weight(isSelected ? .semibold : .medium))
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+                    .lineLimit(1)
+            }
+            .padding(.leading, 5)
+            .padding(.trailing, 12)
+            .padding(.vertical, 5)
+            .frame(maxWidth: fillsWidth ? .infinity : nil)
+            .background {
                 if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .imageScale(.small)
-                        .foregroundStyle(.primary)
+                    Capsule()
+                        .fill(childColor.opacity(0.18))
+                        .overlay(Capsule().strokeBorder(childColor.opacity(0.55), lineWidth: 1))
+                        .matchedGeometryEffect(id: "selection", in: selection)
                 }
             }
-            .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
-            .padding(.vertical, KidDoseLayout.compactVerticalPadding)
-            .background(
-                isSelected
-                    ? childColor.opacity(0.2)
-                    : Color(.secondarySystemBackground),
-                in: Capsule()
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(isSelected ? childColor : .primary.opacity(0.10), lineWidth: 1.5)
-            )
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(child.name)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -351,9 +348,11 @@ private struct EmptyStateView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "person.2.fill")
+            Image(systemName: isWaitingForFamilyChildren ? "arrow.triangle.2.circlepath.icloud" : "person.2.fill")
                 .font(.system(size: 60))
                 .foregroundStyle(.secondary)
+                .symbolRenderingMode(.hierarchical)
+                .symbolEffect(.pulse, options: .repeating, isActive: isWaitingForFamilyChildren)
             Text(isWaitingForFamilyChildren ? "Waiting for family data" : "No children added yet")
                 .font(.title3.bold())
             Text(

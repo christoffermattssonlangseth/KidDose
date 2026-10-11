@@ -16,6 +16,7 @@ struct HistoryView: View {
     @State private var exportFile: ExportFile?
     @State private var exportErrorMessage: String?
     @State private var selectedDose: DoseLog?
+    @Namespace private var doseTransition
 
     // MARK: Computed
     private var visibleChildren: [Child] {
@@ -91,20 +92,20 @@ struct HistoryView: View {
                                 label: "All",
                                 isSelected: selectedChildID == nil,
                                 color: .accentColor
-                            ) { selectedChildID = nil }
+                            ) { withAnimation(.snappy) { selectedChildID = nil } }
 
                             ForEach(visibleChildren) { child in
                                 FilterChip(
                                     label: child.name,
                                     isSelected: selectedChildID == child.persistentModelID,
                                     color: Color(hex: child.colorHex)
-                                ) { selectedChildID = child.persistentModelID }
+                                ) { withAnimation(.snappy) { selectedChildID = child.persistentModelID } }
                             }
                         }
                     }
                 }
                 .padding(10)
-                .kidDoseCardSurface(cornerRadius: 13)
+                .kidDoseGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .padding(.horizontal)
 
                 contentArea
@@ -124,6 +125,7 @@ struct HistoryView: View {
             }
             .navigationDestination(item: $selectedDose) { dose in
                 DoseDetailView(dose: dose, onDelete: deleteFromDetail)
+                    .kidDoseZoomDestination(id: dose.persistentModelID, in: doseTransition)
             }
             .sheet(item: $exportFile) { file in
                 ActivityShareSheet(activityItems: [file.url])
@@ -271,6 +273,7 @@ struct HistoryView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .kidDoseZoomSource(id: dose.persistentModelID, in: doseTransition)
         .accessibilityHint("Shows the exact time and details for this dose")
     }
 
@@ -278,12 +281,12 @@ struct HistoryView: View {
 
     private func togglePast() {
         if showPast && !showUpcoming { return }
-        showPast.toggle()
+        withAnimation(.snappy) { showPast.toggle() }
     }
 
     private func toggleUpcoming() {
         if showUpcoming && !showPast { return }
-        showUpcoming.toggle()
+        withAnimation(.snappy) { showUpcoming.toggle() }
     }
 
     // MARK: Delete
@@ -412,6 +415,7 @@ private struct HistoryModeToggleChip: View {
             HStack(spacing: 6) {
                 Image(systemName: isOn ? "checkmark.circle.fill" : systemImage)
                     .imageScale(.small)
+                    .contentTransition(.symbolEffect(.replace))
                 Text(title)
                     .font(.subheadline.weight(.semibold))
             }
@@ -517,7 +521,7 @@ private struct UpcomingHistoryRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .kidDoseSubtleSurface(cornerRadius: 12)
+        .kidDoseSubtleSurface(cornerRadius: 16)
     }
 
     private func formattedAbsoluteTime(_ date: Date) -> String {
@@ -587,16 +591,18 @@ private struct StatsRowView: View {
                             .foregroundStyle(.secondary)
                         Text("\(stats[med.displayName] ?? 0) doses")
                             .font(.subheadline.bold())
+                            .contentTransition(.numericText())
+                            .animation(.snappy, value: stats[med.displayName] ?? 0)
                     }
                 }
                 .padding(.vertical, 4)
                 .padding(.horizontal, 8)
-                .kidDoseSubtleSurface(cornerRadius: 11)
+                .kidDoseSubtleSurface(cornerRadius: 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(6)
-        .kidDoseCardSurface(cornerRadius: 13)
+        .kidDoseCardSurface(cornerRadius: 20)
     }
 }
 
@@ -672,7 +678,7 @@ private struct DoseRowView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .kidDoseSubtleSurface(cornerRadius: 12)
+        .kidDoseSubtleSurface(cornerRadius: 16)
     }
 
     /// "14:32" today, "Yesterday 14:32", otherwise "Sat 4 Oct 14:32".

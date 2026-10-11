@@ -71,32 +71,30 @@ struct MedicationCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(medication.color.opacity(0.14))
-                    .frame(width: 28, height: 28)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(medication.color.opacity(0.15))
+                    .frame(width: 36, height: 36)
                     .overlay {
                         Image(systemName: medication.iconName)
-                            .font(.caption.weight(.semibold))
+                            .font(.body.weight(.semibold))
                             .foregroundStyle(medication.color)
+                            .symbolEffect(.bounce, value: feedbackTrigger)
                     }
                 Text(medication.displayName)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.headline)
                 Spacer()
-                if isSessionEnded {
-                    Label("Dose Skipped", systemImage: "forward.circle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.orange)
-                } else if isOverdue {
-                    Label("Overdue", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.red)
-                } else if canGive {
-                    Label("Ready", systemImage: "checkmark.circle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.green)
+                Group {
+                    if isSessionEnded {
+                        StatusPill(title: "Skipped", systemImage: "forward.circle.fill", tint: .orange)
+                    } else if isOverdue {
+                        StatusPill(title: "Overdue", systemImage: "exclamationmark.triangle.fill", tint: .red, pulses: true)
+                    } else if canGive {
+                        StatusPill(title: "Ready", systemImage: "checkmark.circle.fill", tint: .green)
+                    }
                 }
+                .transition(.scale(scale: 0.8).combined(with: .opacity))
             }
 
             if let last = lastDose {
@@ -160,25 +158,33 @@ struct MedicationCard: View {
             }
 
             if let nextAllowedDate {
-                CountdownView(targetDate: nextAllowedDate, medication: medication)
-                    .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
-                    .padding(.vertical, KidDoseLayout.compactVerticalPadding)
-                    .kidDoseSubtleSurface()
+                CountdownView(
+                    targetDate: nextAllowedDate,
+                    startDate: lastDose?.timestamp,
+                    medication: medication
+                )
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .kidDoseSubtleSurface(cornerRadius: 16)
             }
 
             Button {
                 showDoseConfirmation = true
             } label: {
-                Label("Give Dose", systemImage: "plus.circle.fill")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, KidDoseLayout.compactVerticalPadding)
-                    .font(.subheadline.weight(.semibold))
+                Label {
+                    Text("Give Dose")
+                } icon: {
+                    Image(systemName: "plus.circle.fill")
+                        .symbolEffect(.bounce, value: feedbackTrigger)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
+                .font(.subheadline.weight(.semibold))
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            .tint(isOverdue ? .red : (canGive ? medication.color : .gray))
+            .kidDoseProminentButton(tint: isOverdue ? .red : (canGive ? medication.color : .gray))
+            .controlSize(.regular)
             .disabled(!canGive)
-            .sensoryFeedback(.impact, trigger: feedbackTrigger)
+            .sensoryFeedback(.success, trigger: feedbackTrigger)
             .confirmationDialog(
                 "Give \(medication.displayName) to \(child.name)?",
                 isPresented: $showDoseConfirmation,
@@ -271,6 +277,7 @@ struct MedicationCard: View {
                             .font(.subheadline.weight(.semibold))
                         }
                         .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
                         .controlSize(.small)
                         .tint(isSessionEnded ? medication.color : .orange)
                     }
@@ -281,16 +288,21 @@ struct MedicationCard: View {
                     .font(.caption.weight(.semibold))
             }
         }
-        .padding(12)
-        .kidDoseCardSurface(cornerRadius: 13)
+        .padding(14)
+        .padding(.leading, 4)
+        .kidDoseCardSurface(cornerRadius: 22)
         .overlay(alignment: .leading) {
-            Rectangle()
+            Capsule()
                 .fill(cardAccentColor)
                 .frame(width: 4)
-                .clipShape(.rect(topLeadingRadius: 13, bottomLeadingRadius: 13))
+                .padding(.vertical, 16)
+                .padding(.leading, 6)
         }
-        .shadow(color: cardShadowColor, radius: 6, y: 2)
-        .shadow(color: isOverdue ? .red.opacity(0.25) : .clear, radius: 12)
+        .shadow(color: cardShadowColor, radius: 10, y: 4)
+        .shadow(color: isOverdue ? .red.opacity(0.25) : .clear, radius: 14)
+        .animation(.smooth, value: isOverdue)
+        .animation(.smooth, value: canGive)
+        .animation(.smooth, value: isSessionEnded)
         .sheet(isPresented: $showRetroactiveSheet) {
             RetroactiveDoseSheet(
                 medication: medication,
@@ -458,63 +470,77 @@ private struct DoseNoteSheet: View {
 
 struct CountdownView: View {
     let targetDate: Date
+    var startDate: Date? = nil
     let medication: Medication
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = targetDate.timeIntervalSince(context.date)
-            if remaining > 0 {
-                VStack(spacing: 4) {
-                    Text(formattedCountdown(remaining))
-                        .font(.system(.title2, design: .monospaced).weight(.semibold))
-                        .foregroundStyle(medication.color)
-                    HStack(spacing: 4) {
-                        Text("until next dose")
-                        Text("·")
-                            .foregroundStyle(.tertiary)
-                        Text("Ready at \(formattedTime(targetDate))")
+            let progress = KidDoseTime.progress(start: startDate, end: targetDate, now: context.date)
+
+            HStack(spacing: 14) {
+                DoseProgressRing(
+                    progress: remaining > 0 ? progress : 1,
+                    tint: ringTint(remaining),
+                    lineWidth: 6
+                ) {
+                    Image(systemName: ringSymbol(remaining))
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(ringTint(remaining))
+                        .contentTransition(.symbolEffect(.replace))
+                        .symbolEffect(.pulse, options: .repeating, isActive: remaining <= -60)
+                }
+                .frame(width: 52, height: 52)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    if remaining > 0 {
+                        Text(KidDoseTime.timer(remaining))
+                            .font(.system(.title, design: .rounded).weight(.semibold).monospacedDigit())
+                            .foregroundStyle(medication.color)
+                            .contentTransition(.numericText(countsDown: true))
+                            .animation(.snappy, value: Int(remaining))
+                        Text("until next dose · ready at \(formattedTime(targetDate))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if remaining > -60 {
+                        Text("Ready now")
+                            .font(.system(.title2, design: .rounded).weight(.semibold))
+                            .foregroundStyle(.green)
+                        Text("Since \(formattedTime(targetDate))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Overdue \(formattedOverdue(-remaining))")
+                            .font(.system(.title3, design: .rounded).weight(.semibold).monospacedDigit())
+                            .foregroundStyle(.red)
+                            .contentTransition(.numericText())
+                            .animation(.snappy, value: Int(-remaining / 60))
+                        Text("Was due at \(formattedTime(targetDate))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 }
-            } else if remaining > -60 {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                    Text("Dose ready now")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.green)
-                }
-            } else {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock.badge.exclamationmark")
-                        .foregroundStyle(.red)
-                    Text("Overdue by \(formattedOverdue(-remaining))")
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.red)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(Color.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+                Spacer(minLength: 0)
             }
+            .accessibilityElement(children: .combine)
         }
+    }
+
+    private func ringTint(_ remaining: TimeInterval) -> Color {
+        if remaining > 0 { return medication.color }
+        return remaining > -60 ? .green : .red
+    }
+
+    private func ringSymbol(_ remaining: TimeInterval) -> String {
+        if remaining > 0 { return "hourglass" }
+        return remaining > -60 ? "checkmark" : "exclamationmark"
     }
 
     private func formattedTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        return formatter.string(from: date)
-    }
-
-    private func formattedCountdown(_ interval: TimeInterval) -> String {
-        let h = Int(interval) / 3600
-        let m = (Int(interval) % 3600) / 60
-        let s = Int(interval) % 60
-        if h > 0 {
-            return String(format: "%dh %02dm %02ds", h, m, s)
-        }
-        return String(format: "%dm %02ds", m, s)
+        date.formatted(date: .omitted, time: .shortened)
     }
 
     private func formattedOverdue(_ interval: TimeInterval) -> String {
