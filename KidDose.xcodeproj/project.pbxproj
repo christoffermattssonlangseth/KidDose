@@ -31,6 +31,7 @@
 		AA000042 /* ScheduledAlarmsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100042 /* ScheduledAlarmsView.swift */; };
 		AA000043 /* FullScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100043 /* FullScheduleView.swift */; };
 		AA000050 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100050 /* HistoryView.swift */; };
+		AA000051 /* DoseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100051 /* DoseDetailView.swift */; };
 		AA000060 /* ChildrenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100060 /* ChildrenView.swift */; };
 		AA000061 /* AddChildSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100061 /* AddChildSheet.swift */; };
 		AA000062 /* CloudSharingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100062 /* CloudSharingController.swift */; };
@@ -38,6 +39,7 @@
 		AA000071 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100071 /* ColorExtensions.swift */; };
 		AA000072 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100072 /* DesignSystem.swift */; };
 		AA000073 /* DoseRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100073 /* DoseRules.swift */; };
+		AA000074 /* ModernComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100074 /* ModernComponents.swift */; };
 		AA000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA100090 /* Assets.xcassets */; };
 		BA000001 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
 		BA000002 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100003 /* LiveActivityManager.swift */; };
@@ -138,6 +140,7 @@
 		AA100042 /* ScheduledAlarmsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledAlarmsView.swift; sourceTree = "<group>"; };
 		AA100043 /* FullScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScheduleView.swift; sourceTree = "<group>"; };
 		AA100050 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		AA100051 /* DoseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseDetailView.swift; sourceTree = "<group>"; };
 		AA100060 /* ChildrenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChildrenView.swift; sourceTree = "<group>"; };
 		AA100061 /* AddChildSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddChildSheet.swift; sourceTree = "<group>"; };
 		AA100062 /* CloudSharingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSharingController.swift; sourceTree = "<group>"; };
@@ -145,6 +148,7 @@
 		AA100071 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
 		AA100072 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		AA100073 /* DoseRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseRules.swift; sourceTree = "<group>"; };
+		AA100074 /* ModernComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModernComponents.swift; sourceTree = "<group>"; };
 		AA100080 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA100081 /* KidDose.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.entitlements; sourceTree = "<group>"; };
 		AA100082 /* KidDose.debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.debug.entitlements; sourceTree = "<group>"; };
@@ -304,6 +308,7 @@
 			isa = PBXGroup;
 			children = (
 				AA100050 /* HistoryView.swift */,
+				AA100051 /* DoseDetailView.swift */,
 			);
 			path = History;
 			sourceTree = "<group>";
@@ -324,6 +329,7 @@
 				AA100070 /* iCloudBanner.swift */,
 				AA100071 /* ColorExtensions.swift */,
 				AA100072 /* DesignSystem.swift */,
+				AA100074 /* ModernComponents.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -586,12 +592,14 @@
 				AA000042 /* ScheduledAlarmsView.swift in Sources */,
 				AA000043 /* FullScheduleView.swift in Sources */,
 				AA000050 /* HistoryView.swift in Sources */,
+				AA000051 /* DoseDetailView.swift in Sources */,
 				AA000060 /* ChildrenView.swift in Sources */,
 				AA000061 /* AddChildSheet.swift in Sources */,
 				AA000062 /* CloudSharingController.swift in Sources */,
 				AA000070 /* iCloudBanner.swift in Sources */,
 				AA000071 /* ColorExtensions.swift in Sources */,
 				AA000072 /* DesignSystem.swift in Sources */,
+				AA000074 /* ModernComponents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

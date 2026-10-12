@@ -97,6 +97,7 @@ struct ChildrenView: View {
                 SettingsActionLabel(title: "Add Child", systemImage: "plus.circle.fill")
             }
             .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
             .controlSize(.small)
         } header: {
             Text("Children")
@@ -241,6 +242,7 @@ struct ChildrenView: View {
             )
         }
         .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
         .controlSize(.small)
         .disabled(isLiveActivityRefreshing)
     }
@@ -314,7 +316,7 @@ struct ChildrenView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .kidDoseSubtleSurface(cornerRadius: 10)
+            .kidDoseSubtleSurface(cornerRadius: 14)
         }
     }
 
@@ -326,6 +328,7 @@ struct ChildrenView: View {
                 SettingsActionLabel(title: "Share Invite Link", systemImage: "square.and.arrow.up")
             }
             .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
             .controlSize(.small)
         }
     }
@@ -341,6 +344,7 @@ struct ChildrenView: View {
             )
         }
         .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
         .controlSize(.small)
         .disabled(isManualSyncInProgress || !FamilyCloudSyncService.shared.isConfigured)
     }
@@ -362,6 +366,7 @@ struct ChildrenView: View {
             SettingsActionLabel(title: "Disconnect Family Sharing", systemImage: "person.2.slash")
         }
         .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
         .controlSize(.small)
     }
 
@@ -433,6 +438,7 @@ struct ChildrenView: View {
             SettingsActionLabel(title: "Refresh Accepted Invite", systemImage: "arrow.clockwise")
         }
         .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
         .controlSize(.small)
         .disabled(isFamilyActionInProgress || !viewModel.familySyncAvailable)
     }
@@ -599,16 +605,25 @@ private struct ChildRowView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(child.name)
                     .font(.headline)
-                Text("Profile used in Home and History")
+                Text(doseSummary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
             }
 
             Spacer()
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 7)
-        .kidDoseSubtleSurface(cornerRadius: 11)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .kidDoseSubtleSurface(cornerRadius: 18)
+    }
+
+    private var doseSummary: String {
+        switch child.doses.count {
+        case 0: return "No doses logged yet"
+        case 1: return "1 dose logged"
+        default: return "\(child.doses.count) doses logged"
+        }
     }
 }
 

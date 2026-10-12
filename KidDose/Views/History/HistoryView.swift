@@ -15,6 +15,8 @@ struct HistoryView: View {
     @State private var selectedChildID: PersistentIdentifier? = nil   // nil = All
     @State private var exportFile: ExportFile?
     @State private var exportErrorMessage: String?
+    @State private var selectedDose: DoseLog?
+    @Namespace private var doseTransition
 
     // MARK: Computed
     private var visibleChildren: [Child] {
@@ -69,6 +71,10 @@ struct HistoryView: View {
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.large)
             .toolbar { exportToolbarItem }
+            .navigationDestination(item: $selectedDose) { dose in
+                DoseDetailView(dose: dose, onDelete: deleteFromDetail)
+                    .kidDoseZoomDestination(id: dose.persistentModelID, in: doseTransition)
+            }
             .sheet(item: $exportFile) { ActivityShareSheet(activityItems: [$0.url]) }
             .alert("Export history", isPresented: exportErrorPresented) {
                 Button("OK", role: .cancel) {}
@@ -103,7 +109,7 @@ struct HistoryView: View {
             childFilterRow
         }
         .padding(10)
-        .kidDoseCardSurface(cornerRadius: 13)
+        .kidDoseGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     @ViewBuilder
@@ -115,7 +121,7 @@ struct HistoryView: View {
                     isSelected: selectedChildID == nil,
                     tint: .accentColor,
                     unselectedLabelWeight: .regular
-                ) { selectedChildID = nil }
+                ) { withAnimation(.snappy) { selectedChildID = nil } }
 
                 ForEach(visibleChildren) { child in
                     SelectableChip(
@@ -123,7 +129,7 @@ struct HistoryView: View {
                         isSelected: selectedChildID == child.persistentModelID,
                         tint: child.tintColor,
                         unselectedLabelWeight: .regular
-                    ) { selectedChildID = child.persistentModelID }
+                    ) { withAnimation(.snappy) { selectedChildID = child.persistentModelID } }
                 }
             }
         }
@@ -181,7 +187,7 @@ struct HistoryView: View {
         } else {
             List {
                 ForEach(filteredDoses) { dose in
-                    DoseRowView(dose: dose)
+                    doseRow(dose)
                         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
@@ -253,7 +259,7 @@ struct HistoryView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(filteredDoses) { dose in
-                        DoseRowView(dose: dose)
+                        doseRow(dose)
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
@@ -267,16 +273,28 @@ struct HistoryView: View {
         .background(Color.clear)
     }
 
+    private func doseRow(_ dose: DoseLog) -> some View {
+        Button {
+            selectedDose = dose
+        } label: {
+            DoseRowView(dose: dose)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .kidDoseZoomSource(id: dose.persistentModelID, in: doseTransition)
+        .accessibilityHint("Shows the exact time and details for this dose")
+    }
+
     // MARK: Toggle helpers
 
     private func togglePast() {
         if showPast && !showUpcoming { return }
-        showPast.toggle()
+        withAnimation(.snappy) { showPast.toggle() }
     }
 
     private func toggleUpcoming() {
         if showUpcoming && !showPast { return }
-        showUpcoming.toggle()
+        withAnimation(.snappy) { showUpcoming.toggle() }
     }
 
     // MARK: Delete
@@ -288,6 +306,15 @@ struct HistoryView: View {
             return current[index]
         }
         for dose in targets {
+            viewModel.deleteDose(dose, context: context)
+        }
+    }
+
+    /// Pops the detail screen first, then deletes, so the detail view never renders a deleted model.
+    private func deleteFromDetail(_ dose: DoseLog) {
+        selectedDose = nil
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
             viewModel.deleteDose(dose, context: context)
         }
     }
@@ -469,7 +496,7 @@ private struct UpcomingHistoryRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .kidDoseSubtleSurface(cornerRadius: 12)
+        .kidDoseSubtleSurface(cornerRadius: 16)
     }
 
     private func formattedAbsoluteTime(_ date: Date) -> String {
@@ -511,16 +538,18 @@ private struct StatsRowView: View {
                             .foregroundStyle(.secondary)
                         Text("\(stats[med.displayName] ?? 0) doses")
                             .font(.subheadline.bold())
+                            .contentTransition(.numericText())
+                            .animation(.snappy, value: stats[med.displayName] ?? 0)
                     }
                 }
                 .padding(.vertical, 4)
                 .padding(.horizontal, 8)
-                .kidDoseSubtleSurface(cornerRadius: 11)
+                .kidDoseSubtleSurface(cornerRadius: 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(6)
-        .kidDoseCardSurface(cornerRadius: 13)
+        .kidDoseCardSurface(cornerRadius: 20)
     }
 }
 
@@ -557,6 +586,7 @@ private struct DoseRowView: View {
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                 }
+                .lineLimit(1)
                 HStack(spacing: 4) {
                     Image(systemName: "person.fill")
                         .imageScale(.small)
@@ -577,16 +607,34 @@ private struct DoseRowView: View {
 
             Spacer()
 
-            TimelineView(.periodic(from: .now, by: 60)) { context in
-                Text(relativeTimestamp(for: dose.timestamp, now: context.date))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.trailing)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(exactTimeLabel(dose.timestamp))
+                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    Text(relativeTimestamp(for: dose.timestamp, now: context.date))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .multilineTextAlignment(.trailing)
+            .fixedSize()
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .kidDoseSubtleSurface(cornerRadius: 12)
+        .kidDoseSubtleSurface(cornerRadius: 16)
+    }
+
+    /// "14:32" today, "Yesterday 14:32", otherwise "Sat 4 Oct 14:32".
+    private func exactTimeLabel(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let time = date.formatted(date: .omitted, time: .shortened)
+        if calendar.isDateInToday(date) { return time }
+        if calendar.isDateInYesterday(date) { return "Yesterday \(time)" }
+        return "\(date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))) \(time)"
     }
 
     private func relativeTimestamp(for timestamp: Date, now: Date) -> String {

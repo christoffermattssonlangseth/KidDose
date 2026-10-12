@@ -47,8 +47,8 @@ extension Color {
 }
 
 enum KidDoseLayout {
-    static let cardCornerRadius: CGFloat = 14
-    static let smallCornerRadius: CGFloat = 10
+    static let cardCornerRadius: CGFloat = 20
+    static let smallCornerRadius: CGFloat = 12
     static let compactVerticalPadding: CGFloat = 7
     static let compactHorizontalPadding: CGFloat = 10
 }
@@ -64,9 +64,16 @@ private struct KidDoseCardSurfaceModifier: ViewModifier {
             )
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.primary.opacity(0.10), Color.primary.opacity(0.03)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
             }
-            .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+            .shadow(color: .black.opacity(0.06), radius: 14, y: 6)
     }
 }
 
