@@ -55,7 +55,7 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
     /// Sends a dose-log request to the iPhone.
     /// Uses interactive messaging when reachable and falls back to background transfer otherwise.
-    func requestDoseLog(childName: String, medication: String, intervalHours: Double) -> DoseLogRequestResult {
+    func requestDoseLog(childID: String?, childName: String, medication: String, intervalHours: Double) -> DoseLogRequestResult {
         guard WCSession.isSupported() else {
             return .failed("Watch sync unavailable")
         }
@@ -70,12 +70,15 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
             return .failed("Install iPhone app first")
         }
 
-        let message: [String: Any] = [
+        var message: [String: Any] = [
             "action": "logDose",
             "childName": childName,
             "medication": medication,
             "intervalHours": intervalHours
         ]
+        if let childID {
+            message["childID"] = childID
+        }
 
         if session.isReachable {
             session.sendMessage(message, replyHandler: nil) { error in
@@ -136,7 +139,7 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
 
         // Detect transitions from "waiting" → "ready" for haptic feedback.
         for new in newSnapshots {
-            if let old = oldSnapshots.first(where: { $0.name == new.name }) {
+            if let old = oldSnapshots.first(where: { $0.id == new.id }) {
                 let ibuprofenBecameReady = isNowReady(new: new.ibuprofenNextDate,
                                                        newHas: new.ibuprofenHasDoses && !new.isSessionEnded(for: .ibuprofen),
                                                        old: old.ibuprofenNextDate, oldHas: old.ibuprofenHasDoses)

@@ -2,7 +2,9 @@ import Foundation
 
 /// Snapshot of a single child's dose state, written by the main app and read by the widget extension.
 struct WidgetChildSnapshot: Codable, Identifiable {
-    var id: String { name }
+    var id: String { childID ?? name }
+    /// Stable child ID. Optional so snapshots from older builds still decode.
+    let childID: String?
     let name: String
     let colorHex: String
     /// The absolute date when the next ibuprofen dose is allowed. Nil if no doses recorded or session ended.
@@ -18,8 +20,15 @@ struct WidgetChildSnapshot: Codable, Identifiable {
     let ibuprofenSessionEnded: Bool?
     /// True when the parent marked the paracetamol course as skipped/ended.
     let paracetamolSessionEnded: Bool?
+    /// The interval the next dose would use (6 h or 8 h for ibuprofen). Optional for older builds.
+    let ibuprofenIntervalHours: Double?
+    let paracetamolIntervalHours: Double?
+    /// True when the parent-set daily limit is reached, so Lock Screen buttons stay hidden.
+    let ibuprofenLimitReached: Bool?
+    let paracetamolLimitReached: Bool?
 
     init(
+        childID: String? = nil,
         name: String,
         colorHex: String,
         ibuprofenNextDate: Date?,
@@ -27,8 +36,13 @@ struct WidgetChildSnapshot: Codable, Identifiable {
         ibuprofenHasDoses: Bool,
         paracetamolHasDoses: Bool,
         ibuprofenSessionEnded: Bool? = nil,
-        paracetamolSessionEnded: Bool? = nil
+        paracetamolSessionEnded: Bool? = nil,
+        ibuprofenIntervalHours: Double? = nil,
+        paracetamolIntervalHours: Double? = nil,
+        ibuprofenLimitReached: Bool? = nil,
+        paracetamolLimitReached: Bool? = nil
     ) {
+        self.childID = childID
         self.name = name
         self.colorHex = colorHex
         self.ibuprofenNextDate = ibuprofenNextDate
@@ -37,6 +51,28 @@ struct WidgetChildSnapshot: Codable, Identifiable {
         self.paracetamolHasDoses = paracetamolHasDoses
         self.ibuprofenSessionEnded = ibuprofenSessionEnded
         self.paracetamolSessionEnded = paracetamolSessionEnded
+        self.ibuprofenIntervalHours = ibuprofenIntervalHours
+        self.paracetamolIntervalHours = paracetamolIntervalHours
+        self.ibuprofenLimitReached = ibuprofenLimitReached
+        self.paracetamolLimitReached = paracetamolLimitReached
+    }
+
+    func isLimitReached(for medication: Medication) -> Bool {
+        switch medication {
+        case .ibuprofen:    return ibuprofenLimitReached ?? false
+        case .paracetamol:  return paracetamolLimitReached ?? false
+        }
+    }
+
+    /// Interval for the next dose, falling back to the medication default.
+    func intervalHours(for medication: Medication) -> Double {
+        let stored: Double?
+        switch medication {
+        case .ibuprofen:    stored = ibuprofenIntervalHours
+        case .paracetamol:  stored = paracetamolIntervalHours
+        }
+        if let stored, stored > 0 { return stored }
+        return medication.intervalHours
     }
 
     func nextDate(for medication: Medication) -> Date? {
@@ -58,6 +94,20 @@ struct WidgetChildSnapshot: Codable, Identifiable {
         case .ibuprofen:    return ibuprofenSessionEnded ?? false
         case .paracetamol:  return paracetamolSessionEnded ?? false
         }
+    }
+}
+
+/// A Lock Screen "Give dose" button that was tapped once and is waiting for the second tap.
+struct PendingDoseConfirmation: Codable, Equatable {
+    let childID: String
+    let medication: String
+    let expiresAt: Date
+
+    /// How long the "Tap again to give" state lasts.
+    static let window: TimeInterval = 8
+
+    func matches(childID: String, medication: String) -> Bool {
+        self.childID == childID && self.medication == medication
     }
 }
 
@@ -104,6 +154,28 @@ enum WidgetDataStore {
         }
         defaults.set(data, forKey: snapshotsKey)
         return true
+    }
+
+    private static let pendingConfirmationKey = "widgetPendingDoseConfirmation"
+
+    /// The armed Lock Screen confirmation, or nil when none is armed or it has expired.
+    static func readPendingConfirmation(now: Date = .now) -> PendingDoseConfirmation? {
+        guard
+            let defaults = sharedDefaults,
+            let data = defaults.data(forKey: pendingConfirmationKey),
+            let pending = try? JSONDecoder().decode(PendingDoseConfirmation.self, from: data),
+            pending.expiresAt > now
+        else { return nil }
+        return pending
+    }
+
+    static func writePendingConfirmation(_ pending: PendingDoseConfirmation?) {
+        guard let defaults = sharedDefaults else { return }
+        if let pending, let data = try? JSONEncoder().encode(pending) {
+            defaults.set(data, forKey: pendingConfirmationKey)
+        } else {
+            defaults.removeObject(forKey: pendingConfirmationKey)
+        }
     }
 
     static func read() -> [WidgetChildSnapshot] {

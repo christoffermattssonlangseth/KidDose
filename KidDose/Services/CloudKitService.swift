@@ -160,6 +160,7 @@ final class FamilyCloudSyncService {
         static let familyZonePrefix = "KidDoseFamily."
         static let childRecordType = "KidDoseChild"
         static let doseRecordType = "KidDoseDose"
+        static let readingRecordType = "KidDoseReading"
         static let childNameField = "name"
         static let childColorField = "colorHex"
         static let childIbuprofenDoseNoteField = "ibuprofenDoseNote"
@@ -176,6 +177,12 @@ final class FamilyCloudSyncService {
         static let givenByField = "givenBy"
         static let usedIntervalField = "usedIntervalHours"
         static let updatedAtField = "updatedAt"
+        static let childIbuprofenMaxDailyField = "ibuprofenMaxDailyDoses"
+        static let childParacetamolMaxDailyField = "paracetamolMaxDailyDoses"
+        static let doseAmountField = "amount"
+        static let readingCelsiusField = "celsius"
+        static let readingSymptomsField = "symptoms"
+        static let readingRecordedByField = "recordedBy"
         static let zoneNameDefaultsKey = "KidDose.family.zoneName"
         static let zoneOwnerDefaultsKey = "KidDose.family.zoneOwnerName"
         static let roleDefaultsKey = "KidDose.family.role"
@@ -380,6 +387,11 @@ final class FamilyCloudSyncService {
             await upsertDose(dose, context: context)
         }
 
+        let readings = (try? context.fetch(FetchDescriptor<TemperatureLog>())) ?? []
+        for reading in readings {
+            await upsertReading(reading, context: context)
+        }
+
         _ = activeDatabase
         if lastSyncErrorMessage == nil {
             setStatus("Uploaded \(children.count) children and \(doses.count) doses.")
@@ -415,6 +427,9 @@ final class FamilyCloudSyncService {
             let doseRecords = zoneChanges.modifiedRecords.filter {
                 $0.recordType == Constants.doseRecordType
             }
+            let readingRecords = zoneChanges.modifiedRecords.filter {
+                $0.recordType == Constants.readingRecordType
+            }
             let deletedRecordNames = Set(zoneChanges.deletedRecordIDs.map(\.recordName))
             setStatus(
                 "Synced \(childRecords.count) child changes, \(doseRecords.count) dose changes, and \(deletedRecordNames.count) deletions from \(zoneID.zoneName)."
@@ -441,8 +456,17 @@ final class FamilyCloudSyncService {
                 let paracetamolSessionEndedAt = record[Constants.childParacetamolSessionEndedAtField] as? Date
                 let ibuprofenCycleStartAt = record[Constants.childIbuprofenCycleStartAtField] as? Date
                 let paracetamolCycleStartAt = record[Constants.childParacetamolCycleStartAtField] as? Date
+                // Written as 0 for "no limit"; absent on records from older app versions.
+                let ibuprofenMaxDaily = record[Constants.childIbuprofenMaxDailyField] as? Int
+                let paracetamolMaxDaily = record[Constants.childParacetamolMaxDailyField] as? Int
 
                 if let existing = childrenByRecordName[recordName] {
+                    if let ibuprofenMaxDaily {
+                        existing.setMaxDailyDoses(ibuprofenMaxDaily, for: .ibuprofen)
+                    }
+                    if let paracetamolMaxDaily {
+                        existing.setMaxDailyDoses(paracetamolMaxDaily, for: .paracetamol)
+                    }
                     existing.name = name
                     existing.colorHex = colorHex
                     existing.ibuprofenDoseNote = ibuprofenDoseNote
@@ -463,6 +487,8 @@ final class FamilyCloudSyncService {
                         paracetamolCycleStartAt: paracetamolCycleStartAt,
                         cloudRecordName: recordName
                     )
+                    child.setMaxDailyDoses(ibuprofenMaxDaily, for: .ibuprofen)
+                    child.setMaxDailyDoses(paracetamolMaxDaily, for: .paracetamol)
                     context.insert(child)
                     childrenByRecordName[recordName] = child
                 }
@@ -497,6 +523,7 @@ final class FamilyCloudSyncService {
                 let givenBy = (record[Constants.givenByField] as? String) ?? "Partner"
                 let intervalHours = (record[Constants.usedIntervalField] as? Double)
                     ?? medication.intervalHours
+                let amount = normalizeNote(record[Constants.doseAmountField] as? String)
 
                 let child: Child
                 if
@@ -522,6 +549,7 @@ final class FamilyCloudSyncService {
                     existingDose.timestamp = timestamp
                     existingDose.givenBy = givenBy
                     existingDose.usedIntervalHours = intervalHours
+                    existingDose.amount = amount
                     if existingDose.child?.cloudRecordName != child.cloudRecordName {
                         existingDose.child = child
                     }
@@ -534,10 +562,51 @@ final class FamilyCloudSyncService {
                     timestamp: timestamp,
                     givenBy: givenBy,
                     child: child,
-                    cloudRecordName: recordName
+                    cloudRecordName: recordName,
+                    amount: amount
                 )
                 context.insert(dose)
                 dosesByRecordName[recordName] = dose
+            }
+
+            let localReadings = (try? context.fetch(FetchDescriptor<TemperatureLog>())) ?? []
+            var readingsByRecordName: [String: TemperatureLog] = [:]
+            for reading in localReadings {
+                if let recordName = reading.cloudRecordName {
+                    readingsByRecordName[recordName] = reading
+                }
+            }
+            for record in readingRecords {
+                let recordName = record.recordID.recordName
+                // Readings for a child this device hasn't received yet arrive on the next sync.
+                guard
+                    let childRecordName = record[Constants.childRecordNameField] as? String,
+                    let child = childrenByRecordName[childRecordName]
+                else { continue }
+
+                let timestamp = (record[Constants.timestampField] as? Date) ?? .now
+                let celsius = record[Constants.readingCelsiusField] as? Double
+                let symptoms = normalizeNote(record[Constants.readingSymptomsField] as? String)
+                let recordedBy = (record[Constants.readingRecordedByField] as? String) ?? "Partner"
+
+                if let existing = readingsByRecordName[recordName] {
+                    existing.timestamp = timestamp
+                    existing.celsius = celsius
+                    existing.symptoms = symptoms
+                    existing.recordedBy = recordedBy
+                    existing.child = child
+                } else {
+                    let reading = TemperatureLog(
+                        timestamp: timestamp,
+                        celsius: celsius,
+                        symptoms: symptoms,
+                        recordedBy: recordedBy,
+                        child: child,
+                        cloudRecordName: recordName
+                    )
+                    context.insert(reading)
+                    readingsByRecordName[recordName] = reading
+                }
             }
 
             // Apply explicit CloudKit deletions so both devices converge after deletes.
@@ -546,6 +615,12 @@ final class FamilyCloudSyncService {
                     guard let recordName = dose.cloudRecordName else { continue }
                     guard deletedRecordNames.contains(recordName) else { continue }
                     context.delete(dose)
+                }
+
+                for reading in localReadings {
+                    guard let recordName = reading.cloudRecordName else { continue }
+                    guard deletedRecordNames.contains(recordName) else { continue }
+                    context.delete(reading)
                 }
 
                 for child in localChildren {
@@ -594,6 +669,8 @@ final class FamilyCloudSyncService {
         record[Constants.childParacetamolSessionEndedAtField] = child.paracetamolSessionEndedAt as CKRecordValue?
         record[Constants.childIbuprofenCycleStartAtField] = child.ibuprofenCycleStartAt as CKRecordValue?
         record[Constants.childParacetamolCycleStartAtField] = child.paracetamolCycleStartAt as CKRecordValue?
+        record[Constants.childIbuprofenMaxDailyField] = (child.ibuprofenMaxDailyDoses ?? 0) as CKRecordValue
+        record[Constants.childParacetamolMaxDailyField] = (child.paracetamolMaxDailyDoses ?? 0) as CKRecordValue
         record[Constants.updatedAtField] = Date() as CKRecordValue
 
         do {
@@ -630,6 +707,7 @@ final class FamilyCloudSyncService {
         record[Constants.timestampField] = dose.timestamp as CKRecordValue
         record[Constants.givenByField] = dose.givenBy as CKRecordValue
         record[Constants.usedIntervalField] = dose.usedIntervalHours as CKRecordValue
+        record[Constants.doseAmountField] = (dose.amount ?? "") as CKRecordValue
         record[Constants.updatedAtField] = Date() as CKRecordValue
 
         do {
@@ -641,6 +719,40 @@ final class FamilyCloudSyncService {
             )
         } catch {
             setError("Dose upsert failed", error: error)
+        }
+    }
+
+    func upsertReading(_ reading: TemperatureLog, context: ModelContext) async {
+        guard let db = activeDatabase, let zoneID = activeZoneID, let child = reading.child else { return }
+
+        if child.cloudRecordName == nil {
+            await upsertChild(child, context: context)
+        }
+
+        if reading.cloudRecordName == nil {
+            reading.cloudRecordName = UUID().uuidString
+            try? context.save()
+        }
+        guard let recordName = reading.cloudRecordName else { return }
+
+        let recordID = CKRecord.ID(recordName: recordName, zoneID: zoneID)
+        let record = CKRecord(recordType: Constants.readingRecordType, recordID: recordID)
+        record[Constants.childRecordNameField] = (child.cloudRecordName ?? "") as CKRecordValue
+        record[Constants.timestampField] = reading.timestamp as CKRecordValue
+        record[Constants.readingCelsiusField] = reading.celsius as CKRecordValue?
+        record[Constants.readingSymptomsField] = (reading.symptoms ?? "") as CKRecordValue
+        record[Constants.readingRecordedByField] = reading.recordedBy as CKRecordValue
+        record[Constants.updatedAtField] = Date() as CKRecordValue
+
+        do {
+            _ = try await db.modifyRecords(
+                saving: [record],
+                deleting: [],
+                savePolicy: .changedKeys,
+                atomically: false
+            )
+        } catch {
+            setError("Reading upsert failed", error: error)
         }
     }
 

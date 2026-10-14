@@ -37,6 +37,23 @@ struct ChildrenView: View {
                 }
 
                 Section {
+                    TextField(
+                        "Your name",
+                        text: Binding(
+                            get: { viewModel.caregiverName },
+                            set: { viewModel.caregiverName = $0 }
+                        ),
+                        prompt: Text("e.g. Mom, Dad, Alex")
+                    )
+                    .textContentType(.givenName)
+                    .submitLabel(.done)
+                } header: {
+                    Text("You")
+                } footer: {
+                    Text("Shown as \"Given by\" on doses you log, including on your partner's phone. iOS doesn't let apps read your phone's name, so without this doses just say \"\(UIDevice.current.model)\".")
+                }
+
+                Section {
                     if visibleChildren.isEmpty {
                         ContentUnavailableView(
                             isWaitingForFamilyChildren ? "Waiting for shared children" : "No children",

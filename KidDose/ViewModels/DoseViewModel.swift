@@ -24,6 +24,33 @@ final class DoseViewModel {
     @ObservationIgnored private var lastParticipantShareRefreshAt: Date = .distantPast
     private let participantShareRefreshInterval: TimeInterval = 180
 
+    // MARK: - Caregiver
+
+    private static let caregiverNameKey = "KidDose.profile.caregiverName"
+
+    /// The name shown as "Given by". iOS no longer exposes the phone's own name to apps,
+    /// so without this every dose would say "iPhone".
+    var caregiverName: String = UserDefaults.standard.string(forKey: DoseViewModel.caregiverNameKey) ?? "" {
+        didSet {
+            UserDefaults.standard.set(
+                caregiverName.trimmingCharacters(in: .whitespacesAndNewlines),
+                forKey: Self.caregiverNameKey
+            )
+        }
+    }
+
+    var givenByName: String {
+        let trimmed = caregiverName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? UIDevice.current.name : trimmed
+    }
+
+    // MARK: - Undo
+
+    /// The dose just logged on this device, offered for undo for a few seconds.
+    var undoableDose: DoseLog?
+    @ObservationIgnored private var undoExpiryTask: Task<Void, Never>?
+    static let undoWindow: Duration = .seconds(10)
+
     // MARK: - iCloud Status
 
     var iCloudAvailable: Bool = true
@@ -309,17 +336,18 @@ final class DoseViewModel {
             child.setCycleStartAt(timestamp, for: medication)
         }
 
-        let givenBy = UIDevice.current.name
         let log = DoseLog(
             medication: medication,
             intervalHours: intervalHours,
             timestamp: timestamp,
-            givenBy: givenBy,
-            child: child
+            givenBy: givenByName,
+            child: child,
+            amount: child.doseNote(for: medication)
         )
         context.insert(log)
         saveContext(context)
         refreshLiveActivity(context: context)
+        offerUndo(for: log)
 
         Task {
             await FamilyCloudSyncService.shared.upsertDose(log, context: context)
@@ -387,9 +415,17 @@ final class DoseViewModel {
 
     @MainActor
     func deleteChild(_ child: Child, context: ModelContext) {
-        let doseRecordNames = child.doses.compactMap(\.cloudRecordName)
+        let relatedRecordNames = child.doses.compactMap(\.cloudRecordName)
+            + child.temperatureReadings.compactMap(\.cloudRecordName)
         Task {
-            await FamilyCloudSyncService.shared.deleteChild(child, doseRecordNames: doseRecordNames)
+            await FamilyCloudSyncService.shared.deleteChild(child, doseRecordNames: relatedRecordNames)
+        }
+        // Pending "dose ready" alerts would otherwise still fire for a deleted child.
+        for medication in Medication.allCases {
+            cancelNotification(for: child, medication: medication)
+        }
+        if undoableDose?.child?.persistentModelID == child.persistentModelID {
+            undoableDose = nil
         }
 
         context.delete(child)
@@ -399,6 +435,9 @@ final class DoseViewModel {
 
     @MainActor
     func deleteDose(_ dose: DoseLog, context: ModelContext) {
+        if undoableDose === dose {
+            dismissUndo()
+        }
         guard
             let child = dose.child,
             let medication = dose.medicationEnum
@@ -432,10 +471,7 @@ final class DoseViewModel {
 
         if let newLatestDose = latestDoseInCurrentCycle(for: medication, child: child) {
             if isMedicationSessionEnded(for: medication, child: child) {
-                NotificationManager.shared.cancelDoseNotification(
-                    childName: child.name,
-                    medication: medication
-                )
+                cancelNotification(for: child, medication: medication)
             } else {
                 let interval = effectiveInterval(lastDose: newLatestDose, medication: medication)
                 scheduleNotification(
@@ -446,10 +482,7 @@ final class DoseViewModel {
                 )
             }
         } else {
-            NotificationManager.shared.cancelDoseNotification(
-                childName: child.name,
-                medication: medication
-            )
+            cancelNotification(for: child, medication: medication)
         }
     }
 
@@ -470,10 +503,7 @@ final class DoseViewModel {
         }
 
         if isMedicationSessionEnded(for: medication, child: child) {
-            NotificationManager.shared.cancelDoseNotification(
-                childName: child.name,
-                medication: medication
-            )
+            cancelNotification(for: child, medication: medication)
         } else {
             scheduleNotification(
                 for: child,
@@ -494,10 +524,7 @@ final class DoseViewModel {
         saveContext(context)
         refreshLiveActivity(context: context)
 
-        NotificationManager.shared.cancelDoseNotification(
-            childName: child.name,
-            medication: medication
-        )
+        cancelNotification(for: child, medication: medication)
 
         Task {
             await FamilyCloudSyncService.shared.upsertChild(child, context: context)
@@ -527,10 +554,7 @@ final class DoseViewModel {
                 from: latestDose.timestamp
             )
         } else {
-            NotificationManager.shared.cancelDoseNotification(
-                childName: child.name,
-                medication: medication
-            )
+            cancelNotification(for: child, medication: medication)
         }
     }
 
@@ -539,10 +563,7 @@ final class DoseViewModel {
         for medication in Medication.allCases {
             child.setSessionEndedAt(nil, for: medication)
             child.setCycleStartAt(.now, for: medication)
-            NotificationManager.shared.cancelDoseNotification(
-                childName: child.name,
-                medication: medication
-            )
+            cancelNotification(for: child, medication: medication)
         }
         saveContext(context)
         refreshLiveActivity(context: context)
@@ -550,6 +571,139 @@ final class DoseViewModel {
         Task {
             await FamilyCloudSyncService.shared.upsertChild(child, context: context)
         }
+    }
+
+    // MARK: - Undo
+
+    private func offerUndo(for dose: DoseLog) {
+        // Only doses logged "now" on this device; past doses come from a deliberate sheet.
+        guard abs(dose.timestamp.timeIntervalSinceNow) < 120 else { return }
+        undoableDose = dose
+        undoExpiryTask?.cancel()
+        undoExpiryTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.undoWindow)
+            guard !Task.isCancelled else { return }
+            if self?.undoableDose === dose {
+                self?.undoableDose = nil
+            }
+        }
+    }
+
+    func dismissUndo() {
+        undoExpiryTask?.cancel()
+        undoableDose = nil
+    }
+
+    @MainActor
+    func undoLastDose(context: ModelContext) {
+        guard let dose = undoableDose else { return }
+        dismissUndo()
+        guard !dose.isDeleted else { return }
+        deleteDose(dose, context: context)
+    }
+
+    // MARK: - Daily Limits
+
+    /// Doses of `medication` given in the 24 hours up to `date`.
+    func dosesInLast24Hours(for medication: Medication, child: Child, at date: Date = .now) -> Int {
+        let timestamps = child.doses
+            .filter { $0.medication == medication.rawValue }
+            .map(\.timestamp)
+        return DoseRules.timestampsInWindow(timestamps, endingAt: date).count
+    }
+
+    /// Nil when the parent hasn't set a limit for this child and medication.
+    func dailyLimitStatus(for medication: Medication, child: Child, at date: Date = .now) -> DailyLimitStatus? {
+        guard let limit = child.maxDailyDoses(for: medication), limit > 0 else { return nil }
+        let timestamps = child.doses
+            .filter { $0.medication == medication.rawValue }
+            .map(\.timestamp)
+        return DailyLimitStatus(
+            given: DoseRules.timestampsInWindow(timestamps, endingAt: date).count,
+            limit: limit,
+            resetsAt: DoseRules.limitResetDate(timestamps: timestamps, limit: limit, at: date)
+        )
+    }
+
+    @MainActor
+    func setMaxDailyDoses(_ value: Int?, for medication: Medication, child: Child, context: ModelContext) {
+        child.setMaxDailyDoses(value, for: medication)
+        saveContext(context)
+        Task {
+            await FamilyCloudSyncService.shared.upsertChild(child, context: context)
+        }
+    }
+
+    // MARK: - Dose Amount
+
+    @MainActor
+    func setAmount(_ amount: String?, for dose: DoseLog, context: ModelContext) {
+        let trimmed = amount?.trimmingCharacters(in: .whitespacesAndNewlines)
+        dose.amount = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        saveContext(context)
+        Task {
+            await FamilyCloudSyncService.shared.upsertDose(dose, context: context)
+        }
+    }
+
+    // MARK: - Temperature
+
+    @MainActor
+    func addReading(
+        celsius: Double?,
+        symptoms: String?,
+        timestamp: Date = .now,
+        for child: Child,
+        context: ModelContext
+    ) {
+        let reading = TemperatureLog(
+            timestamp: timestamp,
+            celsius: celsius,
+            symptoms: symptoms,
+            recordedBy: givenByName,
+            child: child
+        )
+        context.insert(reading)
+        saveContext(context)
+        Task {
+            await FamilyCloudSyncService.shared.upsertReading(reading, context: context)
+        }
+    }
+
+    @MainActor
+    func deleteReading(_ reading: TemperatureLog, context: ModelContext) {
+        let recordName = reading.cloudRecordName
+        context.delete(reading)
+        saveContext(context)
+        if let recordName {
+            Task {
+                await FamilyCloudSyncService.shared.deleteDoses([recordName])
+            }
+        }
+    }
+
+    // MARK: - Stored Data Upkeep
+
+    /// Run once at launch: gives older children a stable ID so alerts and the Watch stop
+    /// depending on names.
+    @MainActor
+    func prepareStoredData(context: ModelContext) {
+        let children = (try? context.fetch(FetchDescriptor<Child>())) ?? []
+        var changed = false
+        for child in children where child.uid == nil {
+            child.uid = UUID().uuidString
+            changed = true
+        }
+        if changed {
+            saveContext(context)
+        }
+    }
+
+    /// The interval the next dose would use: the latest dose's choice, else the default.
+    func currentInterval(for medication: Medication, child: Child) -> Double {
+        let latest = latestDoseInCurrentCycle(for: medication, child: child) ?? child.lastDose(for: medication)
+        if let latest, latest.usedIntervalHours > 0 { return latest.usedIntervalHours }
+        return medication.intervalHours
     }
 
     // MARK: - Notifications
@@ -562,10 +716,19 @@ final class DoseViewModel {
     ) {
         let nextAllowed = timestamp.addingTimeInterval(intervalHours * 3600)
         NotificationManager.shared.scheduleDoseReady(
+            childID: child.stableID,
             childName: child.name,
             medication: medication,
             intervalHours: intervalHours,
             nextAllowedAt: nextAllowed
+        )
+    }
+
+    func cancelNotification(for child: Child, medication: Medication) {
+        NotificationManager.shared.cancelDoseNotification(
+            childID: child.stableID,
+            childName: child.name,
+            medication: medication
         )
     }
 
@@ -604,6 +767,7 @@ final class DoseViewModel {
     private func updateWidgetData(children: [Child], forceDelivery: Bool = false) {
         let snapshots = children.map { child in
             WidgetChildSnapshot(
+                childID: child.uid,
                 name: child.name,
                 colorHex: child.colorHex,
                 ibuprofenNextDate: nextAllowedDate(for: .ibuprofen, child: child),
@@ -611,7 +775,11 @@ final class DoseViewModel {
                 ibuprofenHasDoses: latestDoseInCurrentCycle(for: .ibuprofen, child: child) != nil,
                 paracetamolHasDoses: latestDoseInCurrentCycle(for: .paracetamol, child: child) != nil,
                 ibuprofenSessionEnded: isMedicationSessionEnded(for: .ibuprofen, child: child),
-                paracetamolSessionEnded: isMedicationSessionEnded(for: .paracetamol, child: child)
+                paracetamolSessionEnded: isMedicationSessionEnded(for: .paracetamol, child: child),
+                ibuprofenIntervalHours: currentInterval(for: .ibuprofen, child: child),
+                paracetamolIntervalHours: currentInterval(for: .paracetamol, child: child),
+                ibuprofenLimitReached: dailyLimitStatus(for: .ibuprofen, child: child)?.isReached ?? false,
+                paracetamolLimitReached: dailyLimitStatus(for: .paracetamol, child: child)?.isReached ?? false
             )
         }
         let changed = WidgetDataStore.write(snapshots)

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DoseLogView: View {
+    let childID: String?
     let childName: String
     let medication: Medication
     let intervalHours: Double
@@ -20,6 +21,10 @@ struct DoseLogView: View {
                 .font(.footnote)
                 .multilineTextAlignment(.center)
 
+            Text("Next dose in \(Int(intervalHours))h")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
             if let result {
                 Text(result.feedbackText)
                     .font(.footnote.bold())
@@ -35,6 +40,7 @@ struct DoseLogView: View {
 
                     Button("Confirm") {
                         let requestResult = sessionManager.requestDoseLog(
+                            childID: childID,
                             childName: childName,
                             medication: medication.rawValue,
                             intervalHours: intervalHours

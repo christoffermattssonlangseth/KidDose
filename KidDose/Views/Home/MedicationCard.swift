@@ -37,6 +37,8 @@ struct MedicationCard: View {
         return Date.now >= nextAllowedDate
     }
     var lastDose: DoseLog? { viewModel.latestDoseInCurrentCycle(for: medication, child: child) }
+    var dailyLimit: DailyLimitStatus? { viewModel.dailyLimitStatus(for: medication, child: child) }
+    var limitReached: Bool { dailyLimit?.isReached ?? false }
 
     var cardAccentColor: Color {
         if isOverdue { return .red }
@@ -119,6 +121,10 @@ struct MedicationCard: View {
                     .foregroundStyle(.secondary)
             }
 
+            if let dailyLimit {
+                DailyLimitRow(status: dailyLimit)
+            }
+
             Button {
                 showDoseNoteSheet = true
             } label: {
@@ -186,11 +192,13 @@ struct MedicationCard: View {
             .disabled(!canGive)
             .sensoryFeedback(.success, trigger: feedbackTrigger)
             .confirmationDialog(
-                "Give \(medication.displayName) to \(child.name)?",
+                limitReached
+                    ? "Daily limit reached for \(child.name)"
+                    : "Give \(medication.displayName) to \(child.name)?",
                 isPresented: $showDoseConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Confirm Dose") {
+                Button(limitReached ? "Give Anyway" : "Confirm Dose", role: limitReached ? .destructive : nil) {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                         feedbackTrigger.toggle()
                     }
@@ -203,7 +211,9 @@ struct MedicationCard: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                if let note = visibleDoseNote {
+                if let dailyLimit, dailyLimit.isReached {
+                    Text(limitWarningText(dailyLimit))
+                } else if let note = visibleDoseNote {
                     Text(note)
                 }
             }
@@ -240,6 +250,29 @@ struct MedicationCard: View {
                                 }
                                 .font(.caption.weight(.semibold))
                             }
+                        }
+                    }
+
+                    Stepper(
+                        value: Binding(
+                            get: { child.maxDailyDoses(for: medication) ?? 0 },
+                            set: { newValue in
+                                viewModel.setMaxDailyDoses(
+                                    newValue == 0 ? nil : newValue,
+                                    for: medication,
+                                    child: child,
+                                    context: context
+                                )
+                            }
+                        ),
+                        in: 0...8
+                    ) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Daily limit")
+                                .font(.caption.weight(.semibold))
+                            Text(limitSettingText)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
                     }
 
@@ -333,6 +366,21 @@ struct MedicationCard: View {
                 }
             }
         }
+    }
+
+    private var limitSettingText: String {
+        guard let limit = child.maxDailyDoses(for: medication) else {
+            return "Off. Set the max doses per 24 h from the leaflet or your doctor."
+        }
+        return limit == 1 ? "Warn after 1 dose in 24 h" : "Warn after \(limit) doses in 24 h"
+    }
+
+    private func limitWarningText(_ status: DailyLimitStatus) -> String {
+        var text = "\(child.name) has had \(status.given) of \(status.limit) \(medication.displayName.lowercased()) doses in the last 24 hours."
+        if let resetsAt = status.resetsAt {
+            text += " The next dose is within the limit from \(resetsAt.formatted(date: .omitted, time: .shortened))."
+        }
+        return text + " Only continue if your doctor advised it."
     }
 
     private func relativeTimestamp(for timestamp: Date, now: Date) -> String {
@@ -466,12 +514,54 @@ private struct DoseNoteSheet: View {
     }
 }
 
+// MARK: - Daily Limit
+
+private struct DailyLimitRow: View {
+    let status: DailyLimitStatus
+
+    var body: some View {
+        let tint: Color = status.isReached ? .red : (status.given + 1 >= status.limit ? .orange : .secondary)
+        HStack(spacing: 8) {
+            // One pip per allowed dose, filled for each dose given in the last 24 h.
+            HStack(spacing: 3) {
+                ForEach(0..<max(status.limit, 1), id: \.self) { index in
+                    Capsule()
+                        .fill(index < status.given ? tint : Color.primary.opacity(0.12))
+                        .frame(width: 10, height: 5)
+                }
+            }
+            Text(summary)
+                .font(.caption)
+                .foregroundStyle(status.isReached ? .red : .secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(summary)
+    }
+
+    private var summary: String {
+        if status.isReached {
+            if let resetsAt = status.resetsAt {
+                return "Daily limit reached · OK again at \(resetsAt.formatted(date: .omitted, time: .shortened))"
+            }
+            return "Daily limit reached"
+        }
+        return "\(status.given) of \(status.limit) in the last 24 h"
+    }
+}
+
 // MARK: - Live Countdown
 
 struct CountdownView: View {
     let targetDate: Date
     var startDate: Date? = nil
     let medication: Medication
+
+    // Scale with the user's text size setting.
+    @ScaledMetric(relativeTo: .largeTitle) private var timerSize: CGFloat = 34
+    @ScaledMetric(relativeTo: .title) private var ringSize: CGFloat = 64
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -490,12 +580,12 @@ struct CountdownView: View {
                         .contentTransition(.symbolEffect(.replace))
                         .symbolEffect(.pulse, options: .repeating, isActive: remaining <= -60)
                 }
-                .frame(width: 64, height: 64)
+                .frame(width: ringSize, height: ringSize)
 
                 VStack(alignment: .leading, spacing: 2) {
                     if remaining > 0 {
                         Text(KidDoseTime.timer(remaining))
-                            .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
+                            .font(.system(size: timerSize, weight: .bold, design: .rounded).monospacedDigit())
                             .foregroundStyle(medication.color)
                             .contentTransition(.numericText(countsDown: true))
                             .animation(.snappy, value: Int(remaining))

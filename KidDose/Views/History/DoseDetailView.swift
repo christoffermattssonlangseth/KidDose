@@ -10,8 +10,12 @@ struct DoseDetailView: View {
     let onDelete: (DoseLog) -> Void
 
     @Environment(DoseViewModel.self) private var viewModel
+    @Environment(\.modelContext) private var context
     @State private var showDeleteConfirmation = false
     @State private var didCopy = false
+    @State private var showAmountEditor = false
+    @ScaledMetric(relativeTo: .largeTitle) private var headerTimeSize: CGFloat = 40
+    @State private var amountDraft = ""
 
     var body: some View {
         // A partner's sync can remove this dose while the screen is open.
@@ -51,14 +55,29 @@ struct DoseDetailView: View {
                 LabeledContent("Interval") {
                     Text(intervalText)
                 }
-                if let note = doseNote {
-                    LabeledContent("Dose note", value: note)
+                Button {
+                    amountDraft = dose.amount ?? ""
+                    showAmountEditor = true
+                } label: {
+                    LabeledContent("Amount") {
+                        HStack(spacing: 4) {
+                            Text(dose.amount ?? "Add")
+                                .foregroundStyle(dose.amount == nil ? Color.accentColor : .secondary)
+                            Image(systemName: "pencil")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+                .tint(.primary)
+                if dose.amount == nil, let note = doseNote {
+                    LabeledContent("Current dose note", value: note)
                 }
             } header: {
                 Text("Dose")
             } footer: {
-                if doseNote != nil {
-                    Text("Dose notes are saved per child and medication, so this is the current note.")
+                if dose.amount == nil, doseNote != nil {
+                    Text("This dose was logged before amounts were saved per dose, so the child's current note is shown.")
                 }
             }
 
@@ -118,6 +137,15 @@ struct DoseDetailView: View {
                 }
             }
         }
+        .alert("Amount given", isPresented: $showAmountEditor) {
+            TextField("e.g. 6 ml", text: $amountDraft)
+            Button("Save") {
+                viewModel.setAmount(amountDraft, for: dose, context: context)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Saved with this dose only.")
+        }
         .confirmationDialog(
             "Delete this \(medicationName.lowercased()) dose?",
             isPresented: $showDeleteConfirmation,
@@ -154,7 +182,7 @@ struct DoseDetailView: View {
             }
 
             Text(dose.timestamp.formatted(date: .omitted, time: .shortened))
-                .font(.system(size: 40, weight: .semibold, design: .rounded).monospacedDigit())
+                .font(.system(size: headerTimeSize, weight: .semibold, design: .rounded).monospacedDigit())
 
             TimelineView(.periodic(from: .now, by: 60)) { context in
                 Text("\(fullDateText(dose.timestamp)) · \(agoText(from: dose.timestamp, now: context.date))")
@@ -312,8 +340,8 @@ struct DoseDetailView: View {
         if nextSameMedication == nil, skippedAfterThisDose == nil, !isEarlierCourse {
             lines.append("Next dose allowed: \(shortDateTimeText(nextAllowedDate))")
         }
-        if let note = doseNote {
-            lines.append("Note: \(note)")
+        if let amount = dose.amount {
+            lines.append("Amount: \(amount)")
         }
         if let warning = earlyDoseWarning {
             lines.append("Warning: \(warning)")

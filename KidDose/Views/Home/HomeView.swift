@@ -72,6 +72,10 @@ struct HomeView: View {
                             .transition(.blurReplace)
                             .padding(.horizontal)
 
+                            TemperatureCard(child: child)
+                                .padding(.horizontal)
+                                .kidDoseScrollDepth()
+
                             Button {
                                 showStartNewCycleConfirm = true
                             } label: {
@@ -89,6 +93,24 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 8)
             }
+            .safeAreaInset(edge: .bottom) {
+                if let dose = viewModel.undoableDose, !dose.isDeleted {
+                    UndoDoseBanner(dose: dose) {
+                        withAnimation(.snappy) {
+                            viewModel.undoLastDose(context: context)
+                        }
+                    } onDismiss: {
+                        withAnimation(.snappy) {
+                            viewModel.dismissUndo()
+                        }
+                    }
+                    .id(dose.persistentModelID)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.snappy, value: viewModel.undoableDose?.persistentModelID)
             .navigationTitle("KidDose")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -254,15 +276,76 @@ private struct ChildSwitcher: View {
     }
 }
 
+// MARK: - Undo Banner
+
+/// Shown for a few seconds after giving a dose so an accidental tap can be reversed.
+private struct UndoDoseBanner: View {
+    let dose: DoseLog
+    let onUndo: () -> Void
+    let onDismiss: () -> Void
+
+    @State private var shownAt = Date.now
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title3)
+                .foregroundStyle(.green)
+                .symbolEffect(.bounce, value: shownAt)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(dose.medicationEnum?.displayName ?? "Dose") given")
+                    .font(.subheadline.weight(.semibold))
+                Text("to \(dose.child?.name ?? "child") at \(dose.timestamp.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            Button("Undo", action: onUndo)
+                .font(.subheadline.weight(.bold))
+                .kidDoseSecondaryButton()
+                .controlSize(.small)
+                .accessibilityHint("Removes this dose")
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .kidDoseGlass(in: Capsule())
+        .overlay(alignment: .bottom) {
+            // Drains over the undo window so it's clear how long Undo stays available.
+            TimelineView(.animation(minimumInterval: 0.1)) { context in
+                let elapsed = context.date.timeIntervalSince(shownAt)
+                let total = Double(DoseViewModel.undoWindow.components.seconds)
+                GeometryReader { proxy in
+                    Capsule()
+                        .fill(Color.green.opacity(0.6))
+                        .frame(width: proxy.size.width * max(0, 1 - elapsed / total), height: 2)
+                }
+                .frame(height: 2)
+            }
+            .padding(.horizontal, 22)
+        }
+        .gesture(
+            DragGesture(minimumDistance: 12).onEnded { value in
+                if value.translation.height > 20 { onDismiss() }
+            }
+        )
+    }
+}
+
 // MARK: - Empty State
 
 private struct EmptyStateView: View {
     let isWaitingForFamilyChildren: Bool
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 60
 
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: isWaitingForFamilyChildren ? "arrow.triangle.2.circlepath.icloud" : "person.2.fill")
-                .font(.system(size: 60))
+                .font(.system(size: iconSize))
                 .foregroundStyle(.secondary)
                 .symbolRenderingMode(.hierarchical)
                 .symbolEffect(.pulse, options: .repeating, isActive: isWaitingForFamilyChildren)

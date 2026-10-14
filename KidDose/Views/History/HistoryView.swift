@@ -7,6 +7,7 @@ import UIKit
 struct HistoryView: View {
     @Query(sort: \Child.name) private var children: [Child]
     @Query(sort: \DoseLog.timestamp, order: .reverse) private var allDoses: [DoseLog]
+    @Query(sort: \TemperatureLog.timestamp, order: .reverse) private var allReadings: [TemperatureLog]
     @Environment(DoseViewModel.self) private var viewModel
     @Environment(\.modelContext) private var context
 
@@ -39,6 +40,23 @@ struct HistoryView: View {
             guard let childID = dose.child?.persistentModelID else { return false }
             return visibleChildIDs.contains(childID)
         }
+    }
+
+    private var filteredReadings: [TemperatureLog] {
+        if let id = selectedChildID {
+            return allReadings.filter { $0.child?.persistentModelID == id }
+        }
+        guard visibleChildren.count != children.count else { return allReadings }
+        return allReadings.filter { reading in
+            guard let childID = reading.child?.persistentModelID else { return false }
+            return visibleChildIDs.contains(childID)
+        }
+    }
+
+    /// Doses and temperature readings in one newest-first timeline.
+    private var pastEntries: [PastEntry] {
+        (filteredDoses.map(PastEntry.dose) + filteredReadings.map(PastEntry.reading))
+            .sorted { $0.timestamp > $1.timestamp }
     }
 
     private var filteredChildren: [Child] {
@@ -115,12 +133,21 @@ struct HistoryView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        exportFullHistory()
+                    Menu {
+                        Button {
+                            exportDoctorSummary()
+                        } label: {
+                            Label("Doctor Summary (PDF)", systemImage: "doc.richtext")
+                        }
+                        Button {
+                            exportFullHistory()
+                        } label: {
+                            Label("All Doses (CSV)", systemImage: "tablecells")
+                        }
                     } label: {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }
-                    .disabled(allDoses.isEmpty)
+                    .disabled(allDoses.isEmpty && allReadings.isEmpty)
                 }
             }
             .navigationDestination(item: $selectedDose) { dose in
@@ -171,20 +198,20 @@ struct HistoryView: View {
             .padding(.horizontal)
             .padding(.bottom, 2)
 
-        if filteredDoses.isEmpty {
+        if pastEntries.isEmpty {
             Spacer()
-            Text("No doses recorded")
+            Text("Nothing recorded yet")
                 .foregroundStyle(.secondary)
             Spacer()
         } else {
             List {
-                ForEach(filteredDoses) { dose in
-                    doseRow(dose)
+                ForEach(pastEntries) { entry in
+                    pastRow(entry)
                         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                 }
-                .onDelete(perform: deleteDoses)
+                .onDelete(perform: deleteEntries)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -246,23 +273,33 @@ struct HistoryView: View {
             }
 
             Section("Past") {
-                if filteredDoses.isEmpty {
-                    Text("No doses recorded")
+                if pastEntries.isEmpty {
+                    Text("Nothing recorded yet")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(filteredDoses) { dose in
-                        doseRow(dose)
+                    ForEach(pastEntries) { entry in
+                        pastRow(entry)
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
                     }
-                    .onDelete(perform: deleteDoses)
+                    .onDelete(perform: deleteEntries)
                 }
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(Color.clear)
+    }
+
+    @ViewBuilder
+    private func pastRow(_ entry: PastEntry) -> some View {
+        switch entry {
+        case .dose(let dose):
+            doseRow(dose)
+        case .reading(let reading):
+            ReadingRowView(reading: reading)
+        }
     }
 
     private func doseRow(_ dose: DoseLog) -> some View {
@@ -291,14 +328,16 @@ struct HistoryView: View {
 
     // MARK: Delete
 
-    private func deleteDoses(at offsets: IndexSet) {
-        let current = filteredDoses
-        let targets: [DoseLog] = offsets.compactMap { index -> DoseLog? in
-            guard current.indices.contains(index) else { return nil }
-            return current[index]
-        }
-        for dose in targets {
-            viewModel.deleteDose(dose, context: context)
+    private func deleteEntries(at offsets: IndexSet) {
+        let current = pastEntries
+        let targets = offsets.compactMap { current.indices.contains($0) ? current[$0] : nil }
+        for entry in targets {
+            switch entry {
+            case .dose(let dose):
+                viewModel.deleteDose(dose, context: context)
+            case .reading(let reading):
+                viewModel.deleteReading(reading, context: context)
+            }
         }
     }
 
@@ -308,6 +347,24 @@ struct HistoryView: View {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(450))
             viewModel.deleteDose(dose, context: context)
+        }
+    }
+
+    /// PDF of the last 7 days for the selected child (or every visible child).
+    private func exportDoctorSummary() {
+        let reportChildren = filteredChildren.filter { !$0.doses.isEmpty || !$0.temperatureReadings.isEmpty }
+        guard !reportChildren.isEmpty else {
+            exportErrorMessage = "Nothing to include yet. Log a dose or temperature first."
+            return
+        }
+        do {
+            let url = try DoctorReport.makePDF(
+                children: reportChildren,
+                since: Date.now.addingTimeInterval(-7 * 24 * 3600)
+            )
+            exportFile = ExportFile(url: url)
+        } catch {
+            exportErrorMessage = "Could not create the PDF: \(error.localizedDescription)"
         }
     }
 
@@ -344,7 +401,7 @@ struct HistoryView: View {
                 "dose_timestamp_local",
                 "given_by",
                 "interval_hours",
-                "dose_note"
+                "amount"
             ].joined(separator: ",")
         )
 
@@ -357,7 +414,8 @@ struct HistoryView: View {
                 ? dose.usedIntervalHours
                 : (dose.medicationEnum?.intervalHours ?? 0)
             let intervalString = formatIntervalHours(interval)
-            let note = dose.medicationEnum.flatMap { med in
+            // Prefer the amount saved with the dose; older doses fall back to the current note.
+            let note = dose.amount ?? dose.medicationEnum.flatMap { med in
                 dose.child?.doseNote(for: med)
             } ?? ""
 
@@ -432,6 +490,74 @@ private struct HistoryModeToggleChip: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+private enum PastEntry: Identifiable {
+    case dose(DoseLog)
+    case reading(TemperatureLog)
+
+    var id: PersistentIdentifier {
+        switch self {
+        case .dose(let dose): return dose.persistentModelID
+        case .reading(let reading): return reading.persistentModelID
+        }
+    }
+
+    var timestamp: Date {
+        switch self {
+        case .dose(let dose): return dose.timestamp
+        case .reading(let reading): return reading.timestamp
+        }
+    }
+}
+
+private struct ReadingRowView: View {
+    let reading: TemperatureLog
+
+    var body: some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+                .frame(width: 40, height: 40)
+                .overlay {
+                    Image(systemName: "thermometer.medium")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(reading.isFever ? .red : .primary)
+                }
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(reading.child?.name ?? "Unknown")
+                        .font(.subheadline.bold())
+                    Text("·")
+                        .foregroundStyle(.secondary)
+                    if let celsius = reading.celsius {
+                        Text(TemperatureFormat.display(celsius))
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(reading.isFever ? .red : .primary)
+                    } else {
+                        Text("Symptoms")
+                            .font(.subheadline)
+                    }
+                }
+                .lineLimit(1)
+                Text(reading.symptoms ?? "Recorded by \(reading.recordedBy)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Text(reading.timestamp.formatted(date: .omitted, time: .shortened))
+                .font(.subheadline.monospacedDigit().weight(.semibold))
+                .fixedSize()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .kidDoseSubtleSurface(cornerRadius: 16)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -647,6 +773,11 @@ private struct DoseRowView: View {
                     Text(dose.givenBy)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let amount = dose.amount {
+                        Text("· \(amount)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     // Show which interval was used if it differs from the default
                     if let med = dose.medicationEnum,
                        dose.usedIntervalHours > 0,

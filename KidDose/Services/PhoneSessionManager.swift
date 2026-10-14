@@ -6,7 +6,10 @@ import WatchConnectivity
 /// and handles dose-log requests coming back from the Watch.
 final class PhoneSessionManager: NSObject, WCSessionDelegate {
 
-    private struct PendingDoseLogRequest {
+    /// A dose-log request from the Watch.
+    struct DoseLogRequest {
+        /// Stable child ID. Nil from older Watch builds, which only send the name.
+        let childID: String?
         let childName: String
         let medicationRaw: String
         let intervalHours: Double
@@ -15,14 +18,13 @@ final class PhoneSessionManager: NSObject, WCSessionDelegate {
     static let shared = PhoneSessionManager()
 
     /// Called on the main actor when the Watch requests a dose log.
-    /// Parameters: childName, medicationRawValue, intervalHours
-    var onDoseLogRequest: ((String, String, Double) -> Void)? {
+    var onDoseLogRequest: ((DoseLogRequest) -> Void)? {
         didSet {
             flushPendingDoseLogRequests()
         }
     }
 
-    private var pendingDoseLogRequests: [PendingDoseLogRequest] = []
+    private var pendingDoseLogRequests: [DoseLogRequest] = []
 
     private override init() {
         super.init()
@@ -118,17 +120,18 @@ final class PhoneSessionManager: NSObject, WCSessionDelegate {
             let intervalHours = message["intervalHours"] as? Double
         else { return }
 
+        let request = DoseLogRequest(
+            childID: message["childID"] as? String,
+            childName: childName,
+            medicationRaw: medicationRaw,
+            intervalHours: intervalHours
+        )
+
         DispatchQueue.main.async {
             if let onDoseLogRequest = self.onDoseLogRequest {
-                onDoseLogRequest(childName, medicationRaw, intervalHours)
+                onDoseLogRequest(request)
             } else {
-                self.pendingDoseLogRequests.append(
-                    PendingDoseLogRequest(
-                        childName: childName,
-                        medicationRaw: medicationRaw,
-                        intervalHours: intervalHours
-                    )
-                )
+                self.pendingDoseLogRequests.append(request)
             }
         }
     }
@@ -140,7 +143,7 @@ final class PhoneSessionManager: NSObject, WCSessionDelegate {
         pendingDoseLogRequests.removeAll()
 
         for request in pendingRequests {
-            onDoseLogRequest(request.childName, request.medicationRaw, request.intervalHours)
+            onDoseLogRequest(request)
         }
     }
 }
