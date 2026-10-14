@@ -60,7 +60,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "50EF74472F5869E800C6A1DF"
             BuildableName = "KidDoseWatch Watch App.app"
-            BlueprintName = "KidDoseWatch Watch App"
             ReferencedContainer = "container:KidDose.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -77,7 +76,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "50EF74472F5869E800C6A1DF"
             BuildableName = "KidDoseWatch Watch App.app"
-            BlueprintName = "KidDoseWatch Watch App"
             ReferencedContainer = "container:KidDose.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

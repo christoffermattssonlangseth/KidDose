@@ -237,7 +237,7 @@ private struct ChildSwitcher: View {
 
     private func item(for child: Child, fillsWidth: Bool) -> some View {
         let isSelected = child.persistentModelID == selectedID
-        let childColor = Color(hex: child.colorHex)
+        let childColor = child.tintColor
 
         return Button {
             onSelect(child.persistentModelID)

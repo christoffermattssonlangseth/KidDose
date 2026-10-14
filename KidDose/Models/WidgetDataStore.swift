@@ -20,6 +20,10 @@ struct WidgetChildSnapshot: Codable, Identifiable {
     let ibuprofenSessionEnded: Bool?
     /// True when the parent marked the paracetamol course as skipped/ended.
     let paracetamolSessionEnded: Bool?
+    /// When a new ibuprofen dose becomes safe, counting every dose regardless of skip or cycle.
+    /// Nil when safe now. Optional so snapshots written by older app builds still decode.
+    let ibuprofenBlockedUntil: Date?
+    let paracetamolBlockedUntil: Date?
     /// The interval the next dose would use (6 h or 8 h for ibuprofen). Optional for older builds.
     let ibuprofenIntervalHours: Double?
     let paracetamolIntervalHours: Double?
@@ -37,6 +41,8 @@ struct WidgetChildSnapshot: Codable, Identifiable {
         paracetamolHasDoses: Bool,
         ibuprofenSessionEnded: Bool? = nil,
         paracetamolSessionEnded: Bool? = nil,
+        ibuprofenBlockedUntil: Date? = nil,
+        paracetamolBlockedUntil: Date? = nil,
         ibuprofenIntervalHours: Double? = nil,
         paracetamolIntervalHours: Double? = nil,
         ibuprofenLimitReached: Bool? = nil,
@@ -51,6 +57,8 @@ struct WidgetChildSnapshot: Codable, Identifiable {
         self.paracetamolHasDoses = paracetamolHasDoses
         self.ibuprofenSessionEnded = ibuprofenSessionEnded
         self.paracetamolSessionEnded = paracetamolSessionEnded
+        self.ibuprofenBlockedUntil = ibuprofenBlockedUntil
+        self.paracetamolBlockedUntil = paracetamolBlockedUntil
         self.ibuprofenIntervalHours = ibuprofenIntervalHours
         self.paracetamolIntervalHours = paracetamolIntervalHours
         self.ibuprofenLimitReached = ibuprofenLimitReached
@@ -86,6 +94,13 @@ struct WidgetChildSnapshot: Codable, Identifiable {
         switch medication {
         case .ibuprofen:    return ibuprofenHasDoses
         case .paracetamol:  return paracetamolHasDoses
+        }
+    }
+
+    func blockedUntil(for medication: Medication) -> Date? {
+        switch medication {
+        case .ibuprofen:    return ibuprofenBlockedUntil
+        case .paracetamol:  return paracetamolBlockedUntil
         }
     }
 

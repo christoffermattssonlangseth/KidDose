@@ -43,7 +43,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         childID: String,
         childName: String,
         medication: Medication,
-        intervalHours: Double,
+        body: String,
         nextAllowedAt: Date
     ) {
         let identifier = notificationID(childID: childID, medication: medication)
@@ -56,7 +56,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
         let content = UNMutableNotificationContent()
         content.title = "\(medication.displayName) ready for \(childName)"
-        content.body = "It's been \(Int(intervalHours)) hours — you can give the next dose."
+        content.body = body
         content.threadIdentifier = childID
         content.sound = criticalAlertsGranted
             ? UNNotificationSound.defaultCriticalSound(withAudioVolume: 1.0)
@@ -102,6 +102,21 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().add(request)
     }
 
+    // MARK: - Dose Warning
+
+    /// Immediate, time-sensitive alert when a dose that was already given breaks a rule
+    /// (e.g. a Watch dose logged too soon after a partner's dose).
+    func postDoseWarning(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.interruptionLevel = .timeSensitive
+
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
+
     // MARK: - Cancel
 
     func cancelDoseNotification(childID: String, childName: String, medication: Medication) {
@@ -111,6 +126,19 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 legacyNotificationID(childName: childName, medication: medication)
             ]
         )
+    }
+
+    /// Clears every pending dose-ready notification. Used at launch before rescheduling
+    /// so we drop orphans from renamed children, reinstalls, or deleted/edited doses.
+    func cancelAllPendingDoseNotifications() async {
+        let center = UNUserNotificationCenter.current()
+        let pending = await center.pendingNotificationRequests()
+        let medicationSuffixes = Medication.allCases.map { "-\($0.rawValue)" }
+        let ids = pending
+            .map(\.identifier)
+            .filter { id in medicationSuffixes.contains(where: id.hasSuffix) }
+        guard !ids.isEmpty else { return }
+        center.removePendingNotificationRequests(withIdentifiers: ids)
     }
 
     // MARK: - Helpers

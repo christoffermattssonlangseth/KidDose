@@ -16,7 +16,6 @@
 		50EF746B2F5873C700C6A1DF /* PhoneSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50EF746A2F5873C700C6A1DF /* PhoneSessionManager.swift */; };
 		50EF746E2F5875AC00C6A1DF /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50EF746D2F5875AC00C6A1DF /* WatchConnectivity.framework */; };
 		50EF74702F58760100C6A1DF /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50EF746F2F58760100C6A1DF /* WatchConnectivity.framework */; };
-		50EF74712F58770000C6A1DF /* KidDoseWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 50EF74432F5869E800C6A1DF /* KidDoseWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		50EF74772F58770300C6A1DF /* KidDoseWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 50EF74482F5869E800C6A1DF /* KidDoseWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA000001 /* KidDoseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* KidDoseApp.swift */; };
 		AA000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002 /* AppDelegate.swift */; };
@@ -38,15 +37,16 @@
 		AA000062 /* CloudSharingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100062 /* CloudSharingController.swift */; };
 		AA000070 /* iCloudBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100070 /* iCloudBanner.swift */; };
 		AA000071 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100071 /* ColorExtensions.swift */; };
-		AA000072 /* ModernComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100072 /* ModernComponents.swift */; };
+		AA000072 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100072 /* DesignSystem.swift */; };
+		AA000074 /* ModernComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100074 /* ModernComponents.swift */; };
 		AA000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA100090 /* Assets.xcassets */; };
 		BA000001 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
 		BA000002 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100003 /* LiveActivityManager.swift */; };
 		BA000003 /* KidDoseWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100001 /* KidDoseWidgetsBundle.swift */; };
 		BA000004 /* KidDoseLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100004 /* KidDoseLiveActivityWidget.swift */; };
 		BA000005 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
-		BA000007 /* Medication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100012 /* Medication.swift */; };
 		BA000006 /* KidDoseLiveActivityExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = BAPROD001 /* KidDoseLiveActivityExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		BA000007 /* Medication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100012 /* Medication.swift */; };
 		CE3C5C34C4B306BEF65A32D3 /* TemperatureLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD9AB2A26747BB04B0F57A93 /* TemperatureLog.swift */; };
 		CECF5E6DFBB0CD740D3A6742 /* DoseRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7B946DAF76719FD46C58DD /* DoseRules.swift */; };
 		CE634BBDDC71D9B6FDEE1E6E /* KidDoseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5FB1078278D6301D4BEB6A /* KidDoseStore.swift */; };
@@ -163,7 +163,8 @@
 		AA100062 /* CloudSharingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSharingController.swift; sourceTree = "<group>"; };
 		AA100070 /* iCloudBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudBanner.swift; sourceTree = "<group>"; };
 		AA100071 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
-		AA100072 /* ModernComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModernComponents.swift; sourceTree = "<group>"; };
+		AA100072 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		AA100074 /* ModernComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModernComponents.swift; sourceTree = "<group>"; };
 		AA100080 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA100081 /* KidDose.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.entitlements; sourceTree = "<group>"; };
 		AA100082 /* KidDose.debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.debug.entitlements; sourceTree = "<group>"; };
@@ -360,7 +361,8 @@
 			children = (
 				AA100070 /* iCloudBanner.swift */,
 				AA100071 /* ColorExtensions.swift */,
-				AA100072 /* ModernComponents.swift */,
+				AA100072 /* DesignSystem.swift */,
+				AA100074 /* ModernComponents.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -587,6 +589,27 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		50EF74762F58770200C6A1DF /* Fix Embedded Watch Container Info */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Fix Embedded Watch Container Info";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "WATCH_APP=\"$BUILT_PRODUCTS_DIR/KidDoseWatch.app\"\nWATCH_PLIST=\"$WATCH_APP/Info.plist\"\nif [ -f \"$WATCH_PLIST\" ]; then\n  rm -f \"$WATCH_APP\"/MessagesApplicationStub*.png\n  rm -f \"$WATCH_APP/Assets.car\"\n  /usr/libexec/PlistBuddy -c \"Delete :CFBundleIcons\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Delete :CFBundleIcons~ipad\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Delete :UIDeviceFamily\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily array\" \"$WATCH_PLIST\"\n  /usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily:0 integer 4\" \"$WATCH_PLIST\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		50EF74442F5869E800C6A1DF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -633,7 +656,8 @@
 				AA000062 /* CloudSharingController.swift in Sources */,
 				AA000070 /* iCloudBanner.swift in Sources */,
 				AA000071 /* ColorExtensions.swift in Sources */,
-				AA000072 /* ModernComponents.swift in Sources */,
+				AA000072 /* DesignSystem.swift in Sources */,
+				AA000074 /* ModernComponents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -662,45 +686,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		50EF74752F58770100C6A1DF /* Fix Watch Container Info */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Fix Watch Container Info";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/usr/libexec/PlistBuddy -c \"Delete :UIDeviceFamily\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" 2>/dev/null || true\n/usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily array\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n/usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily:0 integer 4\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n";
-		};
-		50EF74762F58770200C6A1DF /* Fix Embedded Watch Container Info */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Fix Embedded Watch Container Info";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "WATCH_APP=\"$BUILT_PRODUCTS_DIR/KidDoseWatch.app\"\nWATCH_PLIST=\"$WATCH_APP/Info.plist\"\nif [ -f \"$WATCH_PLIST\" ]; then\n  rm -f \"$WATCH_APP\"/MessagesApplicationStub*.png\n  rm -f \"$WATCH_APP/Assets.car\"\n  /usr/libexec/PlistBuddy -c \"Delete :CFBundleIcons\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Delete :CFBundleIcons~ipad\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Delete :UIDeviceFamily\" \"$WATCH_PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily array\" \"$WATCH_PLIST\"\n  /usr/libexec/PlistBuddy -c \"Add :UIDeviceFamily:0 integer 4\" \"$WATCH_PLIST\"\nfi\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		50EF744B2F5869E800C6A1DF /* PBXTargetDependency */ = {
@@ -968,8 +953,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KidDose/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -992,8 +977,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KidDose/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;

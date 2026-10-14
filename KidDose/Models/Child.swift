@@ -15,7 +15,7 @@ final class Child {
     /// Stable local identifier. Names can change or repeat, so alerts and the Watch use this.
     /// Optional for records created before it existed; `DoseViewModel` backfills it at launch.
     var uid: String?
-    /// Parent-set maximum doses per rolling 24 hours (from the leaflet or doctor). Nil = no limit.
+    /// Parent-set cap on doses per rolling 24 h, copied from the product label. Nil = no cap.
     var ibuprofenMaxDailyDoses: Int?
     var paracetamolMaxDailyDoses: Int?
 
@@ -34,6 +34,8 @@ final class Child {
         paracetamolSessionEndedAt: Date? = nil,
         ibuprofenCycleStartAt: Date? = nil,
         paracetamolCycleStartAt: Date? = nil,
+        ibuprofenMaxDailyDoses: Int? = nil,
+        paracetamolMaxDailyDoses: Int? = nil,
         cloudRecordName: String? = nil,
         uid: String? = UUID().uuidString
     ) {
@@ -45,6 +47,8 @@ final class Child {
         self.paracetamolSessionEndedAt = paracetamolSessionEndedAt
         self.ibuprofenCycleStartAt = ibuprofenCycleStartAt
         self.paracetamolCycleStartAt = paracetamolCycleStartAt
+        self.ibuprofenMaxDailyDoses = ibuprofenMaxDailyDoses
+        self.paracetamolMaxDailyDoses = paracetamolMaxDailyDoses
         self.cloudRecordName = cloudRecordName
         self.uid = uid
     }

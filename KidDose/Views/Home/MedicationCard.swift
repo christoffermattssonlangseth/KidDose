@@ -28,17 +28,15 @@ struct MedicationCard: View {
     }
 
     var nextAllowedDate: Date? { viewModel.nextAllowedDate(for: medication, child: child) }
-    var canGive: Bool {
-        guard let nextAllowedDate else { return true }
-        return Date.now >= nextAllowedDate
-    }
+    /// Counts every dose, so Skip / New Cycle can't unlock Give while a dose is still active.
+    var availability: DoseAvailability { viewModel.doseAvailability(for: medication, child: child) }
+    var canGive: Bool { availability.isAllowed }
+    var maxDailyDoses: Int? { child.maxDailyDoses(for: medication) }
     var isOverdue: Bool {
         guard let nextAllowedDate else { return false }
         return Date.now >= nextAllowedDate
     }
     var lastDose: DoseLog? { viewModel.latestDoseInCurrentCycle(for: medication, child: child) }
-    var dailyLimit: DailyLimitStatus? { viewModel.dailyLimitStatus(for: medication, child: child) }
-    var limitReached: Bool { dailyLimit?.isReached ?? false }
 
     var cardAccentColor: Color {
         if isOverdue { return .red }
@@ -73,314 +71,339 @@ struct MedicationCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(medication.color.opacity(0.15))
-                    .frame(width: 36, height: 36)
-                    .overlay {
-                        Image(systemName: medication.iconName)
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(medication.color)
-                            .symbolEffect(.bounce, value: feedbackTrigger)
-                    }
-                Text(medication.displayName)
-                    .font(.headline)
-                Spacer()
-                Group {
-                    if isSessionEnded {
-                        StatusPill(title: "Skipped", systemImage: "forward.circle.fill", tint: .orange)
-                    } else if isOverdue {
-                        StatusPill(title: "Overdue", systemImage: "exclamationmark.triangle.fill", tint: .red, pulses: true)
-                    } else if canGive {
-                        StatusPill(title: "Ready", systemImage: "checkmark.circle.fill", tint: .green)
-                    }
-                }
-                .transition(.scale(scale: 0.8).combined(with: .opacity))
-            }
-
-            if let last = lastDose {
-                HStack(spacing: 8) {
-                    Image(systemName: "clock")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    TimelineView(.periodic(from: .now, by: 60)) { timeline in
-                        Text("Last \(relativeTimestamp(for: last.timestamp, now: timeline.date))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Text(last.givenBy)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            } else {
-                Text("No doses yet")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let dailyLimit {
-                DailyLimitRow(status: dailyLimit)
-            }
-
-            Button {
-                showDoseNoteSheet = true
-            } label: {
-                if let visibleDoseNote {
-                    HStack(spacing: 6) {
-                        Image(systemName: "note.text")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(visibleDoseNote)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                        Spacer(minLength: 8)
-                    }
-                    .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
-                    .padding(.vertical, KidDoseLayout.compactVerticalPadding)
-                    .kidDoseSubtleSurface()
-                } else {
-                    Label("Add note", systemImage: "plus")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color(.secondarySystemBackground), in: Capsule())
-                }
-            }
-            .buttonStyle(.plain)
-
-            if let sessionEndedAt {
-                HStack(spacing: 6) {
-                    Image(systemName: "forward.circle")
-                        .foregroundStyle(.orange)
-                    Text("Dose skipped \(relativeTimestamp(for: sessionEndedAt, now: .now))")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            if let nextAllowedDate {
-                CountdownView(
-                    targetDate: nextAllowedDate,
-                    startDate: lastDose?.timestamp,
-                    medication: medication
-                )
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .kidDoseSubtleSurface(cornerRadius: 16)
-            }
-
-            Button {
-                showDoseConfirmation = true
-            } label: {
-                Label {
-                    Text("Give Dose")
-                } icon: {
-                    Image(systemName: "plus.circle.fill")
-                        .symbolEffect(.bounce, value: feedbackTrigger)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 4)
-                .font(.subheadline.weight(.semibold))
-            }
-            .kidDoseProminentButton(tint: isOverdue ? .red : (canGive ? medication.color : .gray))
-            .controlSize(.regular)
-            .disabled(!canGive)
-            .sensoryFeedback(.success, trigger: feedbackTrigger)
-            .confirmationDialog(
-                limitReached
-                    ? "Daily limit reached for \(child.name)"
-                    : "Give \(medication.displayName) to \(child.name)?",
-                isPresented: $showDoseConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button(limitReached ? "Give Anyway" : "Confirm Dose", role: limitReached ? .destructive : nil) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        feedbackTrigger.toggle()
-                    }
-                    viewModel.logDose(
-                        medication: medication,
-                        intervalHours: selectedInterval,
-                        for: child,
-                        context: context
-                    )
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                if let dailyLimit, dailyLimit.isReached {
-                    Text(limitWarningText(dailyLimit))
-                } else if let note = visibleDoseNote {
-                    Text(note)
-                }
-            }
-
-            DisclosureGroup(isExpanded: $showAdvancedOptions) {
-                VStack(alignment: .leading, spacing: 8) {
-                    if medication.availableIntervals.count > 1 {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Interval for next dose")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Picker("Interval", selection: $selectedInterval) {
-                                ForEach(medication.availableIntervals, id: \.self) { hours in
-                                    Text("Every \(Int(hours))h").tag(hours)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                        }
-
-                        if medication == .ibuprofen, lastDose != nil {
-                            HStack {
-                                Text("Current mode: every \(Int(currentIntervalMode))h")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Button("Switch to \(Int(switchIntervalTarget))h") {
-                                    selectedInterval = switchIntervalTarget
-                                    viewModel.setLatestDoseInterval(
-                                        for: medication,
-                                        intervalHours: switchIntervalTarget,
-                                        child: child,
-                                        context: context
-                                    )
-                                }
-                                .font(.caption.weight(.semibold))
-                            }
-                        }
-                    }
-
-                    Stepper(
-                        value: Binding(
-                            get: { child.maxDailyDoses(for: medication) ?? 0 },
-                            set: { newValue in
-                                viewModel.setMaxDailyDoses(
-                                    newValue == 0 ? nil : newValue,
-                                    for: medication,
-                                    child: child,
-                                    context: context
-                                )
-                            }
-                        ),
-                        in: 0...8
-                    ) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Daily limit")
-                                .font(.caption.weight(.semibold))
-                            Text(limitSettingText)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    Button {
-                        showRetroactiveSheet = true
-                    } label: {
-                        Label("Add Past Dose", systemImage: "clock.arrow.circlepath")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-
-                    if lastDose != nil {
-                        Button {
-                            if isSessionEnded {
-                                viewModel.restartMedicationSession(
-                                    for: medication,
-                                    child: child,
-                                    context: context
-                                )
-                            } else {
-                                viewModel.endMedicationSession(
-                                    for: medication,
-                                    child: child,
-                                    context: context
-                                )
-                            }
-                        } label: {
-                            Label(
-                                isSessionEnded ? "Resume Tracking" : "Skip Dose",
-                                systemImage: isSessionEnded ? "play.circle" : "forward.circle"
-                            )
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                            .font(.subheadline.weight(.semibold))
-                        }
-                        .buttonStyle(.bordered)
-                        .buttonBorderShape(.capsule)
-                        .controlSize(.small)
-                        .tint(isSessionEnded ? medication.color : .orange)
-                    }
-                }
-                .padding(.top, 4)
-            } label: {
-                Label("More options", systemImage: "slider.horizontal.3")
-                    .font(.caption.weight(.semibold))
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            headerRow
+            lastDoseLine
+            noteButton
+            sessionEndedLine
+            countdownBlock
+            dailyLimitLine
+            giveDoseButton
+            advancedDrawer
         }
         .padding(14)
         .padding(.leading, 4)
         .kidDoseCardSurface(cornerRadius: 22)
-        .overlay(alignment: .leading) {
-            Capsule()
-                .fill(cardAccentColor)
-                .frame(width: 4)
-                .padding(.vertical, 16)
-                .padding(.leading, 6)
-        }
+        .overlay(alignment: .leading) { accentStripe }
         .shadow(color: cardShadowColor, radius: 10, y: 4)
         .shadow(color: isOverdue ? .red.opacity(0.25) : .clear, radius: 14)
         .animation(.smooth, value: isOverdue)
         .animation(.smooth, value: canGive)
         .animation(.smooth, value: isSessionEnded)
-        .sheet(isPresented: $showRetroactiveSheet) {
-            RetroactiveDoseSheet(
-                medication: medication,
-                child: child,
-                intervalHours: selectedInterval
-            ) { pastTimestamp, setAsLatest in
-                viewModel.logRetroactiveDose(
+        .sheet(isPresented: $showRetroactiveSheet) { retroactiveSheet }
+        .sheet(isPresented: $showDoseNoteSheet) { doseNoteSheet }
+    }
+
+    // MARK: - Subviews
+
+    @ViewBuilder private var headerRow: some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(medication.color.opacity(0.15))
+                .frame(width: 36, height: 36)
+                .overlay {
+                    Image(systemName: medication.iconName)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(medication.color)
+                        .symbolEffect(.bounce, value: feedbackTrigger)
+                }
+            Text(medication.displayName)
+                .font(.headline)
+            Spacer()
+            Group {
+                if isSessionEnded {
+                    StatusPill(title: "Skipped", systemImage: "forward.circle.fill", tint: .orange)
+                } else if isOverdue {
+                    StatusPill(title: "Overdue", systemImage: "exclamationmark.triangle.fill", tint: .red, pulses: true)
+                } else if canGive {
+                    StatusPill(title: "Ready", systemImage: "checkmark.circle.fill", tint: .green)
+                }
+            }
+            .transition(.scale(scale: 0.8).combined(with: .opacity))
+        }
+    }
+
+    @ViewBuilder private var lastDoseLine: some View {
+        if let last = lastDose {
+            HStack(spacing: 8) {
+                Image(systemName: "clock")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                    Text("Last \(relativeTimestamp(for: last.timestamp, now: timeline.date))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(last.givenBy)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        } else {
+            Text("No doses yet")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private var noteButton: some View {
+        Button {
+            showDoseNoteSheet = true
+        } label: {
+            if let visibleDoseNote {
+                HStack(spacing: 6) {
+                    Image(systemName: "note.text")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(visibleDoseNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                    Spacer(minLength: 8)
+                }
+                .padding(.horizontal, KidDoseLayout.compactHorizontalPadding)
+                .padding(.vertical, KidDoseLayout.compactVerticalPadding)
+                .kidDoseSubtleSurface()
+            } else {
+                Label("Add note or daily limit", systemImage: "plus")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color(.secondarySystemBackground), in: Capsule())
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder private var sessionEndedLine: some View {
+        if let sessionEndedAt {
+            HStack(spacing: 6) {
+                Image(systemName: "forward.circle")
+                    .foregroundStyle(.orange)
+                Text("Dose skipped \(relativeTimestamp(for: sessionEndedAt, now: .now))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder private var countdownBlock: some View {
+        // After Skip / New Cycle there is no scheduled window, but an earlier dose may
+        // still block the next one — count down to that instead.
+        if let target = nextAllowedDate ?? availability.blockedUntil {
+            CountdownView(targetDate: target, startDate: lastDose?.timestamp, medication: medication)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .kidDoseSubtleSurface(cornerRadius: 16)
+        }
+    }
+
+    @ViewBuilder private var dailyLimitLine: some View {
+        if let maxDailyDoses {
+            let given = viewModel.dosesInLast24h(for: medication, child: child)
+            let limitReached: Bool = {
+                if case .dailyLimitReached = availability { return true }
+                return false
+            }()
+            Label(
+                limitReached
+                    ? "Daily limit reached: \(given) of \(maxDailyDoses) in 24 h"
+                    : "\(given) of \(maxDailyDoses) doses in the last 24 h",
+                systemImage: limitReached ? "exclamationmark.octagon.fill" : "24.circle"
+            )
+            .font(.caption.weight(limitReached ? .semibold : .regular))
+            .foregroundStyle(limitReached ? Color.red : Color.secondary)
+        }
+    }
+
+    @ViewBuilder private var giveDoseButton: some View {
+        Button {
+            showDoseConfirmation = true
+        } label: {
+            Label {
+                Text("Give Dose")
+            } icon: {
+                Image(systemName: "plus.circle.fill")
+                    .symbolEffect(.bounce, value: feedbackTrigger)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+            .font(.subheadline.weight(.semibold))
+        }
+        .kidDoseProminentButton(tint: isOverdue ? .red : (canGive ? medication.color : .gray))
+        .controlSize(.regular)
+        .disabled(!canGive)
+        .accessibilityLabel("Give \(medication.displayName) to \(child.name)")
+        .accessibilityHint(canGive ? "Logs a dose now." : "Disabled until the next dose is safe.")
+        .sensoryFeedback(.success, trigger: feedbackTrigger)
+        .confirmationDialog(
+            "Give \(medication.displayName) to \(child.name)?",
+            isPresented: $showDoseConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Confirm Dose") {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    feedbackTrigger.toggle()
+                }
+                viewModel.logDose(
                     medication: medication,
                     intervalHours: selectedInterval,
-                    timestamp: pastTimestamp,
-                    setAsLatest: setAsLatest,
                     for: child,
                     context: context
                 )
             }
-        }
-        .sheet(isPresented: $showDoseNoteSheet) {
-            DoseNoteSheet(
-                medication: medication,
-                childName: child.name,
-                initialNote: doseNote ?? ""
-            ) { newNote in
-                let trimmed = newNote.trimmingCharacters(in: .whitespacesAndNewlines)
-                child.setDoseNote(trimmed.isEmpty ? nil : trimmed, for: medication)
-                try? context.save()
-                Task {
-                    await viewModel.syncChildToFamilyCloud(child, context: context)
-                }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let note = visibleDoseNote {
+                Text(note)
             }
         }
     }
 
-    private var limitSettingText: String {
-        guard let limit = child.maxDailyDoses(for: medication) else {
-            return "Off. Set the max doses per 24 h from the leaflet or your doctor."
+    @ViewBuilder private var advancedDrawer: some View {
+        DisclosureGroup(isExpanded: $showAdvancedOptions) {
+            VStack(alignment: .leading, spacing: 8) {
+                if medication.availableIntervals.count > 1 {
+                    intervalPicker
+                    if medication == .ibuprofen, lastDose != nil {
+                        intervalSwitchRow
+                    }
+                }
+                addPastDoseButton
+                if lastDose != nil { skipOrResumeButton }
+            }
+            .padding(.top, 4)
+        } label: {
+            Label("More options", systemImage: "slider.horizontal.3")
+                .font(.caption.weight(.semibold))
         }
-        return limit == 1 ? "Warn after 1 dose in 24 h" : "Warn after \(limit) doses in 24 h"
     }
 
-    private func limitWarningText(_ status: DailyLimitStatus) -> String {
-        var text = "\(child.name) has had \(status.given) of \(status.limit) \(medication.displayName.lowercased()) doses in the last 24 hours."
-        if let resetsAt = status.resetsAt {
-            text += " The next dose is within the limit from \(resetsAt.formatted(date: .omitted, time: .shortened))."
+    @ViewBuilder private var intervalPicker: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Interval for next dose")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Picker("Interval", selection: $selectedInterval) {
+                ForEach(medication.availableIntervals, id: \.self) { hours in
+                    Text("Every \(Int(hours))h").tag(hours)
+                }
+            }
+            .pickerStyle(.segmented)
         }
-        return text + " Only continue if your doctor advised it."
+    }
+
+    @ViewBuilder private var intervalSwitchRow: some View {
+        HStack {
+            Text("Current mode: every \(Int(currentIntervalMode))h")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Switch to \(Int(switchIntervalTarget))h") {
+                selectedInterval = switchIntervalTarget
+                viewModel.setLatestDoseInterval(
+                    for: medication,
+                    intervalHours: switchIntervalTarget,
+                    child: child,
+                    context: context
+                )
+            }
+            .font(.caption.weight(.semibold))
+        }
+    }
+
+    @ViewBuilder private var addPastDoseButton: some View {
+        Button {
+            showRetroactiveSheet = true
+        } label: {
+            Label("Add Past Dose", systemImage: "clock.arrow.circlepath")
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .font(.subheadline.weight(.semibold))
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .controlSize(.small)
+        .tint(medication.color)
+    }
+
+    @ViewBuilder private var skipOrResumeButton: some View {
+        Button {
+            if isSessionEnded {
+                viewModel.restartMedicationSession(for: medication, child: child, context: context)
+            } else {
+                viewModel.endMedicationSession(for: medication, child: child, context: context)
+            }
+        } label: {
+            Label(
+                isSessionEnded ? "Resume Tracking" : "Skip Dose",
+                systemImage: isSessionEnded ? "play.circle" : "forward.circle"
+            )
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .font(.subheadline.weight(.semibold))
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .controlSize(.small)
+        .tint(isSessionEnded ? medication.color : .orange)
+    }
+
+    private var accentStripe: some View {
+        Capsule()
+            .fill(cardAccentColor)
+            .frame(width: 4)
+            .padding(.vertical, 16)
+            .padding(.leading, 6)
+    }
+
+    private var retroactiveSheet: some View {
+        RetroactiveDoseSheet(
+            medication: medication,
+            child: child,
+            intervalHours: selectedInterval,
+            newerDoseCount: { timestamp in
+                viewModel.newerDosesInCurrentCycle(than: timestamp, medication: medication, child: child).count
+            },
+            conflicts: { timestamp, setAsLatest in
+                viewModel.pastDoseConflicts(
+                    medication: medication,
+                    intervalHours: selectedInterval,
+                    timestamp: timestamp,
+                    replacingNewer: setAsLatest,
+                    child: child
+                )
+            }
+        ) { pastTimestamp, setAsLatest in
+            viewModel.logRetroactiveDose(
+                medication: medication,
+                intervalHours: selectedInterval,
+                timestamp: pastTimestamp,
+                setAsLatest: setAsLatest,
+                for: child,
+                context: context
+            )
+        }
+    }
+
+    private var doseNoteSheet: some View {
+        DoseNoteSheet(
+            medication: medication,
+            childName: child.name,
+            initialNote: doseNote ?? "",
+            initialMaxDailyDoses: maxDailyDoses
+        ) { newNote, newMaxDailyDoses in
+            let trimmed = newNote.trimmingCharacters(in: .whitespacesAndNewlines)
+            viewModel.setDoseInstructions(
+                note: trimmed.isEmpty ? nil : trimmed,
+                maxDailyDoses: newMaxDailyDoses,
+                for: medication,
+                child: child,
+                context: context
+            )
+        }
     }
 
     private func relativeTimestamp(for timestamp: Date, now: Date) -> String {
@@ -400,6 +423,8 @@ private struct RetroactiveDoseSheet: View {
     let medication: Medication
     let child: Child
     let intervalHours: Double
+    let newerDoseCount: (Date) -> Int
+    let conflicts: (Date, Bool) -> [DoseConflict]
     let onSave: (Date, Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -408,7 +433,8 @@ private struct RetroactiveDoseSheet: View {
         value: -1,
         to: .now
     ) ?? .now
-    @State private var setAsLatest = true
+    // Off by default: replacing deletes newer doses (possibly a partner's) on every device.
+    @State private var setAsLatest = false
 
     private var canSave: Bool {
         selectedTimestamp <= .now
@@ -434,12 +460,39 @@ private struct RetroactiveDoseSheet: View {
                 }
 
                 Section {
-                    Toggle("Use as most recent dose", isOn: $setAsLatest)
-                    Text(
-                        "If on, any newer \(medication.displayName.lowercased()) entries for \(child.name) will be replaced."
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Toggle("Replace newer doses", isOn: $setAsLatest)
+                    let newerCount = newerDoseCount(selectedTimestamp)
+                    if setAsLatest, newerCount > 0 {
+                        Label(
+                            "Deletes \(newerCount) newer \(medication.displayName.lowercased()) \(newerCount == 1 ? "dose" : "doses") for \(child.name) on every family device. Only use this to correct a dose logged at the wrong time.",
+                            systemImage: "trash"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    } else {
+                        Text(
+                            "Off: the dose is added to the history and newer doses are kept. On: newer \(medication.displayName.lowercased()) entries in the current infection cycle are deleted."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+
+                let ruleConflicts = conflicts(selectedTimestamp, setAsLatest)
+                if !ruleConflicts.isEmpty {
+                    Section("Check this dose") {
+                        ForEach(Array(ruleConflicts.enumerated()), id: \.offset) { _, conflict in
+                            Label(
+                                conflict.explanation(medicationName: medication.displayName),
+                                systemImage: "exclamationmark.triangle.fill"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                        }
+                        Text("It will still be recorded, because it was already given.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .navigationTitle("Add Past Dose")
@@ -465,21 +518,26 @@ private struct RetroactiveDoseSheet: View {
 private struct DoseNoteSheet: View {
     let medication: Medication
     let childName: String
-    let onSave: (String) -> Void
+    let onSave: (String, Int?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var note: String
+    @State private var limitEnabled: Bool
+    @State private var maxDailyDoses: Int
 
     init(
         medication: Medication,
         childName: String,
         initialNote: String,
-        onSave: @escaping (String) -> Void
+        initialMaxDailyDoses: Int?,
+        onSave: @escaping (String, Int?) -> Void
     ) {
         self.medication = medication
         self.childName = childName
         self.onSave = onSave
         _note = State(initialValue: initialNote)
+        _limitEnabled = State(initialValue: initialMaxDailyDoses != nil)
+        _maxDailyDoses = State(initialValue: initialMaxDailyDoses ?? 4)
     }
 
     var body: some View {
@@ -491,13 +549,23 @@ private struct DoseNoteSheet: View {
                         .autocorrectionDisabled()
                 }
                 Section {
-                    Text("Saved per child and medication. Leave empty to clear.")
+                    Toggle("Limit doses per 24 h", isOn: $limitEnabled.animation())
+                    if limitEnabled {
+                        Stepper("Max \(maxDailyDoses) doses in 24 h", value: $maxDailyDoses, in: 1...8)
+                    }
+                } header: {
+                    Text("Daily limit")
+                } footer: {
+                    Text("Use the maximum from your product's package leaflet or your doctor. KidDose blocks Give Dose once the limit is reached within any 24 hours.")
+                }
+                Section {
+                    Text("Saved per child and medication and shared with your family. Leave the note empty to clear it.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     LabeledContent("Child", value: childName)
                 }
             }
-            .navigationTitle("Dose Note")
+            .navigationTitle("Dose Instructions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -505,50 +573,12 @@ private struct DoseNoteSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        onSave(note)
+                        onSave(note, limitEnabled ? maxDailyDoses : nil)
                         dismiss()
                     }
                 }
             }
         }
-    }
-}
-
-// MARK: - Daily Limit
-
-private struct DailyLimitRow: View {
-    let status: DailyLimitStatus
-
-    var body: some View {
-        let tint: Color = status.isReached ? .red : (status.given + 1 >= status.limit ? .orange : .secondary)
-        HStack(spacing: 8) {
-            // One pip per allowed dose, filled for each dose given in the last 24 h.
-            HStack(spacing: 3) {
-                ForEach(0..<max(status.limit, 1), id: \.self) { index in
-                    Capsule()
-                        .fill(index < status.given ? tint : Color.primary.opacity(0.12))
-                        .frame(width: 10, height: 5)
-                }
-            }
-            Text(summary)
-                .font(.caption)
-                .foregroundStyle(status.isReached ? .red : .secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-            Spacer(minLength: 0)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(summary)
-    }
-
-    private var summary: String {
-        if status.isReached {
-            if let resetsAt = status.resetsAt {
-                return "Daily limit reached · OK again at \(resetsAt.formatted(date: .omitted, time: .shortened))"
-            }
-            return "Daily limit reached"
-        }
-        return "\(status.given) of \(status.limit) in the last 24 h"
     }
 }
 

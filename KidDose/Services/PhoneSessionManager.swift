@@ -4,27 +4,33 @@ import WatchConnectivity
 /// Manages WatchConnectivity on the iPhone side.
 /// The iPhone is the source of truth; it sends snapshots to the Watch
 /// and handles dose-log requests coming back from the Watch.
-final class PhoneSessionManager: NSObject, WCSessionDelegate {
+/// A dose logged on the Watch, delivered to the iPhone.
+struct WatchDoseLogRequest {
+    /// Stable child ID. Nil from older Watch builds, which only send the name.
+    let childID: String?
+    let childName: String
+    let medicationRaw: String
+    let intervalHours: Double
+    /// When the dose was given on the Watch. Clamped so a skewed Watch clock can't log a
+    /// future dose; older Watch builds don't send it, so it falls back to arrival time.
+    let givenAt: Date
+}
 
-    /// A dose-log request from the Watch.
-    struct DoseLogRequest {
-        /// Stable child ID. Nil from older Watch builds, which only send the name.
-        let childID: String?
-        let childName: String
-        let medicationRaw: String
-        let intervalHours: Double
-    }
+final class PhoneSessionManager: NSObject, WCSessionDelegate {
 
     static let shared = PhoneSessionManager()
 
     /// Called on the main actor when the Watch requests a dose log.
-    var onDoseLogRequest: ((DoseLogRequest) -> Void)? {
+    var onDoseLogRequest: ((WatchDoseLogRequest) -> Void)? {
         didSet {
             flushPendingDoseLogRequests()
         }
     }
 
-    private var pendingDoseLogRequests: [DoseLogRequest] = []
+    private var pendingDoseLogRequests: [WatchDoseLogRequest] = []
+
+    private static let handledRequestIDsKey = "handledWatchDoseRequestIDs"
+    private static let handledRequestIDsLimit = 100
 
     private override init() {
         super.init()
@@ -120,20 +126,35 @@ final class PhoneSessionManager: NSObject, WCSessionDelegate {
             let intervalHours = message["intervalHours"] as? Double
         else { return }
 
-        let request = DoseLogRequest(
+        let requestID = message["requestID"] as? String
+        let givenAt = min((message["requestedAt"] as? Date) ?? .now, .now)
+        let request = WatchDoseLogRequest(
             childID: message["childID"] as? String,
             childName: childName,
             medicationRaw: medicationRaw,
-            intervalHours: intervalHours
+            intervalHours: intervalHours,
+            givenAt: givenAt
         )
 
         DispatchQueue.main.async {
+            if let requestID, !self.markRequestHandled(requestID) { return }
             if let onDoseLogRequest = self.onDoseLogRequest {
                 onDoseLogRequest(request)
             } else {
                 self.pendingDoseLogRequests.append(request)
             }
         }
+    }
+
+    /// Returns false if this request was already handled (a retried send that had in fact
+    /// been delivered), so one Watch tap never logs two doses.
+    private func markRequestHandled(_ requestID: String) -> Bool {
+        let defaults = UserDefaults.standard
+        var handled = defaults.stringArray(forKey: Self.handledRequestIDsKey) ?? []
+        guard !handled.contains(requestID) else { return false }
+        handled.append(requestID)
+        defaults.set(Array(handled.suffix(Self.handledRequestIDsLimit)), forKey: Self.handledRequestIDsKey)
+        return true
     }
 
     private func flushPendingDoseLogRequests() {
