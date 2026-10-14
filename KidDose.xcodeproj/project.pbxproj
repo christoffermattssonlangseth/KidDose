@@ -59,6 +59,7 @@
 		CE637E565AF7BFFBEA208458 /* KidDoseIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD30F23233E331F2A5CA8C3B /* KidDoseIntents.swift */; };
 		TSBF0001 /* DoseRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSFR0001 /* DoseRulesTests.swift */; };
 		TSBF0002 /* DoseViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSFR0002 /* DoseViewModelTests.swift */; };
+		TSBF0003 /* DoctorReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSFR0003 /* DoctorReportTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -188,6 +189,7 @@
 		CD30F23233E331F2A5CA8C3B /* KidDoseIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidDoseIntents.swift; sourceTree = "<group>"; };
 		TSFR0001 /* DoseRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseRulesTests.swift; sourceTree = "<group>"; };
 		TSFR0002 /* DoseViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseViewModelTests.swift; sourceTree = "<group>"; };
+		TSFR0003 /* DoctorReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoctorReportTests.swift; sourceTree = "<group>"; };
 		TSPROD001 /* KidDoseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KidDoseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -397,6 +399,7 @@
 			children = (
 				TSFR0001 /* DoseRulesTests.swift */,
 				TSFR0002 /* DoseViewModelTests.swift */,
+				TSFR0003 /* DoctorReportTests.swift */,
 			);
 			path = KidDoseTests;
 			sourceTree = "<group>";
@@ -682,6 +685,7 @@
 			files = (
 				TSBF0001 /* DoseRulesTests.swift in Sources */,
 				TSBF0002 /* DoseViewModelTests.swift in Sources */,
+				TSBF0003 /* DoctorReportTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

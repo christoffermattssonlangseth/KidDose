@@ -741,6 +741,25 @@ final class DoseViewModel {
         }
     }
 
+    /// Corrects an existing reading. Keeps who recorded it; the cloud record is overwritten.
+    @MainActor
+    func updateReading(
+        _ reading: TemperatureLog,
+        celsius: Double?,
+        symptoms: String?,
+        timestamp: Date,
+        context: ModelContext
+    ) {
+        let trimmed = symptoms?.trimmingCharacters(in: .whitespacesAndNewlines)
+        reading.celsius = celsius
+        reading.symptoms = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        reading.timestamp = timestamp
+        saveContext(context)
+        Task {
+            await FamilyCloudSyncService.shared.upsertReading(reading, context: context)
+        }
+    }
+
     @MainActor
     func deleteReading(_ reading: TemperatureLog, context: ModelContext) {
         let recordName = reading.cloudRecordName

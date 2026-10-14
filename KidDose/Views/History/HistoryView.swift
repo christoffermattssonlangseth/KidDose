@@ -17,6 +17,7 @@ struct HistoryView: View {
     @State private var exportFile: ExportFile?
     @State private var exportErrorMessage: String?
     @State private var selectedDose: DoseLog?
+    @State private var editingReading: TemperatureLog?
     @Namespace private var doseTransition
 
     // MARK: Computed
@@ -94,6 +95,11 @@ struct HistoryView: View {
                     .kidDoseZoomDestination(id: dose.persistentModelID, in: doseTransition)
             }
             .sheet(item: $exportFile) { ActivityShareSheet(activityItems: [$0.url]) }
+            .sheet(item: $editingReading) { reading in
+                if let child = reading.child {
+                    AddReadingSheet(child: child, suggestedCelsius: nil, editing: reading)
+                }
+            }
             .alert("Export history", isPresented: exportErrorPresented) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -306,7 +312,14 @@ struct HistoryView: View {
         case .dose(let dose):
             doseRow(dose)
         case .reading(let reading):
-            ReadingRowView(reading: reading)
+            Button {
+                editingReading = reading
+            } label: {
+                ReadingRowView(reading: reading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Edit or delete this reading")
         }
     }
 
@@ -528,6 +541,10 @@ private struct ReadingRowView: View {
             Text(reading.timestamp.formatted(date: .omitted, time: .shortened))
                 .font(.subheadline.monospacedDigit().weight(.semibold))
                 .fixedSize()
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)

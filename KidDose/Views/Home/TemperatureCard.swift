@@ -134,6 +134,8 @@ private struct TemperatureSparkline: View {
 struct AddReadingSheet: View {
     let child: Child
     let suggestedCelsius: Double?
+    /// When set, the sheet corrects this reading instead of adding a new one.
+    let editing: TemperatureLog?
 
     @Environment(DoseViewModel.self) private var viewModel
     @Environment(\.modelContext) private var context
@@ -145,17 +147,31 @@ struct AddReadingSheet: View {
     @State private var selectedSymptoms: Set<String> = []
     @State private var notes = ""
     @State private var timestamp = Date.now
+    @State private var showDeleteConfirmation = false
 
     private static let commonSymptoms = [
         "Cough", "Sore throat", "Earache", "Runny nose", "Headache",
         "Vomiting", "Diarrhea", "Rash", "Tired", "Not eating"
     ]
 
-    init(child: Child, suggestedCelsius: Double?) {
+    init(child: Child, suggestedCelsius: Double?, editing: TemperatureLog? = nil) {
         self.child = child
         self.suggestedCelsius = suggestedCelsius
-        let start = TemperatureFormat.fromCelsius(suggestedCelsius ?? 38.0)
+        self.editing = editing
+        let start = TemperatureFormat.fromCelsius(editing?.celsius ?? suggestedCelsius ?? 38.0)
         _tenths = State(initialValue: Int((start * 10).rounded()))
+
+        if let editing {
+            _includeTemperature = State(initialValue: editing.celsius != nil)
+            _timestamp = State(initialValue: editing.timestamp)
+            // Saved as "Cough, Rash, other notes": known symptoms become chips again.
+            let parts = (editing.symptoms ?? "")
+                .components(separatedBy: ", ")
+                .filter { !$0.isEmpty }
+            let known = parts.filter { Self.commonSymptoms.contains($0) }
+            _selectedSymptoms = State(initialValue: Set(known))
+            _notes = State(initialValue: parts.filter { !Self.commonSymptoms.contains($0) }.joined(separator: ", "))
+        }
     }
 
     private var range: ClosedRange<Int> {
@@ -221,10 +237,22 @@ struct AddReadingSheet: View {
                 Section {
                     DatePicker("Time", selection: $timestamp, in: ...Date.now)
                 } footer: {
-                    Text("Saved for \(child.name). Your partner sees it too if family sharing is on.")
+                    if let editing {
+                        Text("Recorded by \(editing.recordedBy). Changes are shared with your partner if family sharing is on.")
+                    } else {
+                        Text("Saved for \(child.name). Your partner sees it too if family sharing is on.")
+                    }
+                }
+
+                if editing != nil {
+                    Section {
+                        Button("Delete Reading", role: .destructive) {
+                            showDeleteConfirmation = true
+                        }
+                    }
                 }
             }
-            .navigationTitle("New Reading")
+            .navigationTitle(editing == nil ? "New Reading" : "Edit Reading")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -235,17 +263,40 @@ struct AddReadingSheet: View {
                         let celsius = includeTemperature
                             ? TemperatureFormat.toCelsius(Double(tenths) / 10)
                             : nil
-                        viewModel.addReading(
-                            celsius: celsius,
-                            symptoms: symptomsText,
-                            timestamp: timestamp,
-                            for: child,
-                            context: context
-                        )
+                        if let editing {
+                            viewModel.updateReading(
+                                editing,
+                                celsius: celsius,
+                                symptoms: symptomsText,
+                                timestamp: timestamp,
+                                context: context
+                            )
+                        } else {
+                            viewModel.addReading(
+                                celsius: celsius,
+                                symptoms: symptomsText,
+                                timestamp: timestamp,
+                                for: child,
+                                context: context
+                            )
+                        }
                         dismiss()
                     }
                     .disabled(!canSave)
                 }
+            }
+            .confirmationDialog(
+                "Delete this reading?",
+                isPresented: $showDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    if let editing {
+                        viewModel.deleteReading(editing, context: context)
+                    }
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
             }
         }
     }
