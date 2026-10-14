@@ -18,6 +18,7 @@ struct HistoryView: View {
     @State private var exportErrorMessage: String?
     @State private var selectedDose: DoseLog?
     @State private var editingReading: TemperatureLog?
+    @State private var showStats = false
     @Namespace private var doseTransition
 
     // MARK: Computed
@@ -89,7 +90,19 @@ struct HistoryView: View {
             .padding(.top, 8)
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar { exportToolbarItem }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showStats = true
+                    } label: {
+                        Label("Stats", systemImage: "chart.xyaxis.line")
+                    }
+                }
+                exportToolbarItem
+            }
+            .navigationDestination(isPresented: $showStats) {
+                StatsView(data: StatsData(children: filteredChildren))
+            }
             .navigationDestination(item: $selectedDose) { dose in
                 DoseDetailView(dose: dose, onDelete: deleteFromDetail)
                     .kidDoseZoomDestination(id: dose.persistentModelID, in: doseTransition)

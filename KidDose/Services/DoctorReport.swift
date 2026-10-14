@@ -116,18 +116,6 @@ enum DoctorReport {
         drawSummaryCards(child, on: page)
         page.space(22)
 
-        if !child.doses.isEmpty || child.readings.contains(where: { $0.celsius != nil }) {
-            page.heading("Timeline", caption: "Each dot is a dose; the pale bar is its waiting period. Shaded columns are night, 22–06.")
-            ReportCharts.timeline(child, end: end, on: page)
-            page.space(22)
-        }
-
-        if ReportCharts.hasDailyBars(child) {
-            page.heading("Doses per day", caption: "Calendar days. The daily limit counts any rolling 24 hours; see the summary above.")
-            ReportCharts.dosesPerDay(child, end: end, on: page)
-            page.space(22)
-        }
-
         drawTable(child, on: page)
     }
 
@@ -251,205 +239,6 @@ enum DoctorReport {
     }
 }
 
-// MARK: - Charts
-
-private enum ReportCharts {
-    static let gutter: CGFloat = 88
-    static let calendar = Calendar.current
-
-    /// Medication lanes plus a temperature panel above them, sharing one time axis.
-    static func timeline(_ child: DoctorReport.ChildReport, end: Date, on page: PageWriter) {
-        let temps = child.readings.filter { $0.celsius != nil }
-        let medications = Medication.allCases.filter { med in child.doses.contains { $0.medication == med } }
-
-        let firstEvent = (child.doses.map(\.timestamp) + temps.map(\.timestamp)).min() ?? end
-        var domainStart = calendar.startOfDay(for: firstEvent)
-        if end.timeIntervalSince(domainStart) < 12 * 3600 { domainStart = end.addingTimeInterval(-12 * 3600) }
-        let domain = domainStart...end
-        let days = end.timeIntervalSince(domainStart) / 86_400
-
-        let tempHeight: CGFloat = temps.isEmpty ? 0 : 118
-        let laneHeight: CGFloat = 26
-        let axisHeight: CGFloat = 16
-        let panelGap: CGFloat = temps.isEmpty ? 0 : 10
-        let total = tempHeight + panelGap + laneHeight * CGFloat(medications.count) + axisHeight
-        let rect = page.block(height: total)
-
-        let plot = CGRect(x: rect.minX + gutter, y: rect.minY, width: rect.width - gutter - 6, height: total - axisHeight)
-        func x(_ date: Date) -> CGFloat {
-            let span = domain.upperBound.timeIntervalSince(domain.lowerBound)
-            return plot.minX + CGFloat(date.timeIntervalSince(domain.lowerBound) / span) * plot.width
-        }
-
-        // Night shading and day lines across every panel.
-        page.clipped(to: plot) {
-            var day = calendar.startOfDay(for: domain.lowerBound).addingTimeInterval(-86_400)
-            while day < end {
-                let nightStart = day.addingTimeInterval(22 * 3600)
-                let nightEnd = day.addingTimeInterval(30 * 3600)
-                Palette.fill(UIBezierPath(rect: CGRect(x: x(nightStart), y: plot.minY, width: x(nightEnd) - x(nightStart), height: plot.height)),
-                             Palette.night)
-                day = day.addingTimeInterval(86_400)
-            }
-        }
-        var tick = calendar.startOfDay(for: domain.lowerBound)
-        let tickStep: TimeInterval = days <= 3 ? 6 * 3600 : 86_400
-        while tick <= end {
-            if tick >= domain.lowerBound {
-                let isMidnight = calendar.startOfDay(for: tick) == tick
-                Palette.vLine(x: x(tick), from: plot.minY, to: plot.maxY + 3, color: isMidnight ? Palette.grid : Palette.grid.withAlphaComponent(0.5))
-                let label = isMidnight
-                    ? tick.formatted(.dateTime.weekday(.abbreviated).day())
-                    : tick.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)))
-                Text.draw(label, font: Text.rounded(7.5, isMidnight ? .semibold : .regular), color: Palette.muted,
-                          at: CGPoint(x: x(tick) + 2.5, y: plot.maxY + 3))
-            }
-            tick = tick.addingTimeInterval(tickStep)
-        }
-
-        // Temperature panel.
-        if !temps.isEmpty {
-            let panel = CGRect(x: plot.minX, y: plot.minY, width: plot.width, height: tempHeight)
-            let values = temps.compactMap(\.celsius).map(TemperatureFormat.fromCelsius)
-            let fever = TemperatureFormat.fromCelsius(38.0)
-            let step: Double = TemperatureFormat.usesFahrenheit ? 2 : 1
-            let low = (min(values.min()!, TemperatureFormat.fromCelsius(36.5)) / step).rounded(.down) * step
-            let high = (max(values.max()!, TemperatureFormat.fromCelsius(39.5)) / step).rounded(.up) * step
-            func y(_ value: Double) -> CGFloat {
-                panel.maxY - 6 - CGFloat((value - low) / (high - low)) * (panel.height - 12)
-            }
-
-            Text.draw("Temperature", font: Text.rounded(9, .semibold), color: Palette.ink, at: CGPoint(x: rect.minX, y: panel.minY))
-            var g = low
-            while g <= high {
-                Palette.hLine(y: y(g), from: panel.minX, to: panel.maxX, color: Palette.grid)
-                Text.draw("\(Int(g))°", font: Text.rounded(7.5), color: Palette.muted,
-                          rightAlignedAt: CGPoint(x: panel.minX - 5, y: y(g) - 4.5))
-                g += step
-            }
-
-            let feverLine = UIBezierPath()
-            feverLine.move(to: CGPoint(x: panel.minX, y: y(fever)))
-            feverLine.addLine(to: CGPoint(x: panel.maxX, y: y(fever)))
-            feverLine.lineWidth = 1
-            feverLine.setLineDash([3, 3], count: 2, phase: 0)
-            Palette.fever.withAlphaComponent(0.7).setStroke()
-            feverLine.stroke()
-            Text.draw("Fever \(TemperatureFormat.display(38.0))", font: Text.rounded(7.5, .semibold), color: Palette.secondary,
-                      rightAlignedAt: CGPoint(x: panel.maxX - 2, y: y(fever) - 11))
-
-            let points = temps.map { CGPoint(x: x($0.timestamp), y: y(TemperatureFormat.fromCelsius($0.celsius!))) }
-            if points.count > 1 {
-                let line = UIBezierPath()
-                line.move(to: points[0])
-                points.dropFirst().forEach { line.addLine(to: $0) }
-                line.lineWidth = 2
-                line.lineJoinStyle = .round
-                line.lineCapStyle = .round
-                Palette.tempLine.setStroke()
-                line.stroke()
-            }
-            for (reading, point) in zip(temps, points) {
-                Palette.marker(at: point, radius: 3.5, color: reading.isFever ? Palette.fever : Palette.tempLine)
-            }
-            // Label only the peak, to keep the panel quiet.
-            if let peakIndex = temps.indices.max(by: { temps[$0].celsius! < temps[$1].celsius! }) {
-                let point = points[peakIndex]
-                Text.draw(TemperatureFormat.display(temps[peakIndex].celsius!), font: Text.rounded(8, .semibold), color: Palette.ink,
-                          centeredAt: CGPoint(x: min(max(point.x, panel.minX + 20), panel.maxX - 20), y: point.y - 11))
-            }
-        }
-
-        // Medication lanes.
-        var laneY = plot.minY + tempHeight + panelGap
-        for medication in medications {
-            let lane = CGRect(x: plot.minX, y: laneY, width: plot.width, height: laneHeight)
-            let color = Palette.color(for: medication)
-            Palette.marker(at: CGPoint(x: rect.minX + 4, y: lane.midY), radius: 3.5, color: color, ring: false)
-            Text.draw(medication.displayName, font: Text.rounded(9, .semibold), color: Palette.ink,
-                      at: CGPoint(x: rect.minX + 12, y: lane.midY - 6))
-            Palette.hLine(y: lane.midY, from: lane.minX, to: lane.maxX, color: Palette.grid)
-
-            let doses = child.doses.filter { $0.medication == medication }
-            page.clipped(to: lane) {
-                for dose in doses {
-                    let start = x(dose.timestamp)
-                    let stop = x(dose.timestamp.addingTimeInterval(dose.intervalHours * 3600))
-                    let bar = CGRect(x: start, y: lane.midY - 5, width: max(stop - start, 2), height: 10)
-                    Palette.fill(UIBezierPath(roundedRect: bar, cornerRadius: 5), color.withAlphaComponent(0.22))
-                }
-            }
-            for dose in doses {
-                Palette.marker(at: CGPoint(x: x(dose.timestamp), y: lane.midY), radius: 4.5, color: color)
-            }
-            laneY += laneHeight
-        }
-    }
-
-    static func hasDailyBars(_ child: DoctorReport.ChildReport) -> Bool {
-        Set(child.doses.map { calendar.startOfDay(for: $0.timestamp) }).count >= 2
-    }
-
-    /// Grouped bars: one per medication per calendar day.
-    static func dosesPerDay(_ child: DoctorReport.ChildReport, end: Date, on page: PageWriter) {
-        let medications = Medication.allCases.filter { med in child.doses.contains { $0.medication == med } }
-        guard let first = child.doses.map(\.timestamp).min() else { return }
-        var days: [Date] = []
-        var day = calendar.startOfDay(for: first)
-        while day <= end {
-            days.append(day)
-            day = calendar.date(byAdding: .day, value: 1, to: day)!
-        }
-        let counts = days.map { day in
-            medications.map { med in child.doses.filter { $0.medication == med && calendar.isDate($0.timestamp, inSameDayAs: day) }.count }
-        }
-        let maxCount = max(counts.flatMap { $0 }.max() ?? 1, 2)
-
-        let rect = page.block(height: 112)
-        let legendHeight: CGFloat = 14
-        let plot = CGRect(x: rect.minX + gutter, y: rect.minY + legendHeight + 10, width: rect.width - gutter - 6,
-                          height: rect.height - legendHeight - 10 - 16)
-
-        // Legend (two series), right-aligned above the plot.
-        var legendX = plot.maxX
-        for medication in medications.reversed() {
-            let label = Text.attributed(medication.displayName, font: Text.rounded(8.5), color: Palette.secondary)
-            legendX -= label.size().width
-            label.draw(at: CGPoint(x: legendX, y: rect.minY))
-            legendX -= 10
-            Palette.marker(at: CGPoint(x: legendX + 3.5, y: rect.minY + 5.5), radius: 3.5, color: Palette.color(for: medication), ring: false)
-            legendX -= 12
-        }
-
-        func y(_ value: Int) -> CGFloat { plot.maxY - CGFloat(value) / CGFloat(maxCount) * plot.height }
-        let gridStep = maxCount <= 6 ? 1 : 2
-        for value in stride(from: 0, through: maxCount, by: gridStep) {
-            Palette.hLine(y: y(value), from: plot.minX, to: plot.maxX, color: value == 0 ? Palette.neutralLine : Palette.grid)
-            Text.draw("\(value)", font: Text.rounded(7.5), color: Palette.muted, rightAlignedAt: CGPoint(x: plot.minX - 5, y: y(value) - 4.5))
-        }
-
-        let slot = plot.width / CGFloat(days.count)
-        let barWidth = min(14, slot * 0.3)
-        let gap: CGFloat = 2
-        let groupWidth = barWidth * CGFloat(medications.count) + gap * CGFloat(medications.count - 1)
-        for (index, day) in days.enumerated() {
-            let groupX = plot.minX + slot * CGFloat(index) + (slot - groupWidth) / 2
-            for (m, medication) in medications.enumerated() {
-                let count = counts[index][m]
-                guard count > 0 else { continue }
-                let bar = CGRect(x: groupX + CGFloat(m) * (barWidth + gap), y: y(count), width: barWidth, height: plot.maxY - y(count))
-                Palette.fill(
-                    UIBezierPath(roundedRect: bar, byRoundingCorners: [.topLeft, .topRight], cornerRadii: CGSize(width: 3, height: 3)),
-                    Palette.color(for: medication)
-                )
-                Text.draw("\(count)", font: Text.rounded(7.5, .semibold), color: Palette.ink, centeredAt: CGPoint(x: bar.midX, y: bar.minY - 6))
-            }
-            Text.draw(day.formatted(.dateTime.weekday(.abbreviated).day()), font: Text.rounded(7.5), color: Palette.muted,
-                      centeredAt: CGPoint(x: plot.minX + slot * (CGFloat(index) + 0.5), y: plot.maxY + 8))
-        }
-    }
-}
-
 // MARK: - Palette and text
 
 /// Fixed light colors: a PDF is printed on white whatever the phone's appearance.
@@ -460,8 +249,6 @@ private enum Palette {
     static let grid = UIColor(red: 0.90, green: 0.90, blue: 0.92, alpha: 1)
     static let neutralLine = UIColor(red: 0.72, green: 0.72, blue: 0.74, alpha: 1)
     static let surface = UIColor(red: 0.965, green: 0.965, blue: 0.97, alpha: 1)
-    static let night = UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
-    static let tempLine = UIColor(red: 0.23, green: 0.23, blue: 0.25, alpha: 1)
     static let fever = UIColor(red: 0.84, green: 0.0, blue: 0.08, alpha: 1)
 
     static func resolved(_ color: Color) -> UIColor {
@@ -479,15 +266,6 @@ private enum Palette {
         let path = UIBezierPath()
         path.move(to: CGPoint(x: x0, y: y))
         path.addLine(to: CGPoint(x: x1, y: y))
-        path.lineWidth = 0.5
-        color.setStroke()
-        path.stroke()
-    }
-
-    static func vLine(x: CGFloat, from y0: CGFloat, to y1: CGFloat, color: UIColor) {
-        let path = UIBezierPath()
-        path.move(to: CGPoint(x: x, y: y0))
-        path.addLine(to: CGPoint(x: x, y: y1))
         path.lineWidth = 0.5
         color.setStroke()
         path.stroke()
@@ -579,13 +357,6 @@ private final class PageWriter {
         let rect = CGRect(x: margin, y: y, width: contentWidth, height: height)
         y += height
         return rect
-    }
-
-    func clipped(to rect: CGRect, _ draw: () -> Void) {
-        context.cgContext.saveGState()
-        UIBezierPath(rect: rect).addClip()
-        draw()
-        context.cgContext.restoreGState()
     }
 
     func text(_ string: String, font: UIFont, color: UIColor) {

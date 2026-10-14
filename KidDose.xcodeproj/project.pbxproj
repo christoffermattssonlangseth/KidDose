@@ -32,6 +32,7 @@
 		AA000043 /* FullScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100043 /* FullScheduleView.swift */; };
 		AA000050 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100050 /* HistoryView.swift */; };
 		AA000051 /* DoseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100051 /* DoseDetailView.swift */; };
+		AA000091 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100091 /* StatsView.swift */; };
 		AA000060 /* ChildrenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100060 /* ChildrenView.swift */; };
 		AA000061 /* AddChildSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100061 /* AddChildSheet.swift */; };
 		AA000062 /* CloudSharingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100062 /* CloudSharingController.swift */; };
@@ -159,6 +160,7 @@
 		AA100043 /* FullScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScheduleView.swift; sourceTree = "<group>"; };
 		AA100050 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		AA100051 /* DoseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseDetailView.swift; sourceTree = "<group>"; };
+		AA100091 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		AA100060 /* ChildrenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChildrenView.swift; sourceTree = "<group>"; };
 		AA100061 /* AddChildSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddChildSheet.swift; sourceTree = "<group>"; };
 		AA100062 /* CloudSharingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSharingController.swift; sourceTree = "<group>"; };
@@ -344,6 +346,7 @@
 			children = (
 				AA100050 /* HistoryView.swift */,
 				AA100051 /* DoseDetailView.swift */,
+				AA100091 /* StatsView.swift */,
 			);
 			path = History;
 			sourceTree = "<group>";
@@ -654,6 +657,7 @@
 				AA000043 /* FullScheduleView.swift in Sources */,
 				AA000050 /* HistoryView.swift in Sources */,
 				AA000051 /* DoseDetailView.swift in Sources */,
+				AA000091 /* StatsView.swift in Sources */,
 				AA000060 /* ChildrenView.swift in Sources */,
 				AA000061 /* AddChildSheet.swift in Sources */,
 				AA000062 /* CloudSharingController.swift in Sources */,

@@ -46,11 +46,52 @@ final class DoctorReportTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(document.pageCount, 1)
         let text = document.string ?? ""
         XCTAssertTrue(text.contains("Emma"))
-        XCTAssertTrue(text.contains("Doses per day"))
+        XCTAssertTrue(text.contains("All entries"))
+        XCTAssertFalse(text.contains("Doses per day"))
 
         // Handy for eyeballing the layout: the path is printed in the test log.
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("KidDose-sample-report.pdf")
         try data.write(to: url)
         print("Sample report: \(url.path)")
+    }
+}
+
+import SwiftUI
+
+@MainActor
+final class StatsViewTests: XCTestCase {
+    /// Three days of alternating doses and a fever coming down.
+    private func sampleData(end: Date) -> StatsData {
+        func hoursAgo(_ h: Double) -> Date { end.addingTimeInterval(-h * 3600) }
+        var doses: [StatsData.Dose] = []
+        for h in stride(from: 64.0, to: 0, by: -8) {
+            doses.append(.init(id: "p\(h)", timestamp: hoursAgo(h), medication: .paracetamol, intervalHours: 6))
+        }
+        for h in stride(from: 60.0, to: 0, by: -9) {
+            doses.append(.init(id: "i\(h)", timestamp: hoursAgo(h), medication: .ibuprofen, intervalHours: 8))
+        }
+        let temps: [(Double, Double)] = [(66, 38.4), (60, 39.1), (54, 39.4), (46, 38.6), (40, 38.9),
+                                         (32, 38.2), (24, 37.9), (16, 37.6), (8, 37.4), (2, 37.1)]
+        let readings = temps.map { StatsData.Reading(id: "t\($0.0)", timestamp: hoursAgo($0.0), celsius: $0.1) }
+        return StatsData(children: [.init(name: "Emma", color: Color(hex: "#4ECDC4"), doses: doses, readings: readings)])
+    }
+
+    func testRendersInLightAndDark() throws {
+        let data = sampleData(end: .now)
+        for scheme in [ColorScheme.light, .dark] {
+            let view = StatsView(data: data).content
+                .environment(\.colorScheme, scheme)
+                .frame(width: 393)
+                .background(scheme == .dark ? Color.black : Color(.systemGroupedBackground))
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 2
+            let image = try XCTUnwrap(renderer.uiImage)
+            XCTAssertGreaterThan(image.size.height, 0)
+
+            // Handy for eyeballing the layout: the path is printed in the test log.
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("KidDose-stats-\(scheme == .dark ? "dark" : "light").png")
+            try XCTUnwrap(image.pngData()).write(to: url)
+            print("Stats preview: \(url.path)")
+        }
     }
 }
