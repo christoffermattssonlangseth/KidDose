@@ -15,11 +15,11 @@ struct KidDoseApp: App {
     @State private var appLock = AppLockService()
 
     init() {
-        let startup = Self.makeModelContainer()
+        let startup = KidDoseStore.startup
         modelContainer = startup.container
         startupError = startup.error
 
-        let initialViewModel = DoseViewModel()
+        let initialViewModel = KidDoseStore.viewModel
         _viewModel = State(initialValue: initialViewModel)
 
         PhoneSessionManager.shared.activate()
@@ -28,8 +28,11 @@ struct KidDoseApp: App {
                 Task { @MainActor in
                     let ctx = modelContainer.mainContext
                     let children = (try? ctx.fetch(FetchDescriptor<Child>())) ?? []
+                    // Match by stable ID first; the name is only a fallback for older Watch builds.
+                    let matchedChild = request.childID.flatMap { id in children.first { $0.uid == id } }
+                        ?? children.first { $0.name == request.childName }
                     guard
-                        let child = children.first(where: { $0.name == request.childName }),
+                        let child = matchedChild,
                         let medication = Medication(rawValue: request.medicationRaw)
                     else { return }
                     initialViewModel.logWatchDose(
@@ -46,47 +49,6 @@ struct KidDoseApp: App {
         }
     }
 
-    private static func makeModelContainer() -> (container: ModelContainer?, error: String?) {
-        let schema = Schema([Child.self, DoseLog.self])
-
-        // 1) Preferred: CloudKit-backed store (when bundle id is configured).
-        if let containerIdentifier = CloudKitConfig.containerIdentifier {
-            do {
-                let cloudConfig = ModelConfiguration(
-                    cloudKitDatabase: .private(containerIdentifier)
-                )
-                return (try ModelContainer(for: schema, configurations: [cloudConfig]), nil)
-            } catch {
-                print("[KidDoseApp] CloudKit store init failed: \(error)")
-            }
-        } else {
-            print("[KidDoseApp] CloudKit not configured — trying local store")
-        }
-
-        // 2) Fallback: local on-device store.
-        do {
-            let localConfig = ModelConfiguration(
-                cloudKitDatabase: .none
-            )
-            return (try ModelContainer(for: schema, configurations: [localConfig]), nil)
-        } catch {
-            print("[KidDoseApp] Local store init failed: \(error)")
-        }
-
-        // 3) Last resort: in-memory store (no persisted data, but app launches).
-        do {
-            let memoryConfig = ModelConfiguration(
-                isStoredInMemoryOnly: true,
-                cloudKitDatabase: .none
-            )
-            return (try ModelContainer(for: schema, configurations: [memoryConfig]), nil)
-        } catch {
-            let message = "Failed to initialize any ModelContainer: \(error)"
-            print("[KidDoseApp] \(message)")
-            return (nil, message)
-        }
-    }
-
     var body: some Scene {
         WindowGroup {
             if let modelContainer {
@@ -96,6 +58,7 @@ struct KidDoseApp: App {
                         .environment(viewModel)
                         .task {
                             appDelegate.modelContainer = modelContainer
+                            viewModel.prepareStoredData(context: modelContainer.mainContext)
 
                             // Send current snapshots to Watch on launch.
                             // Small delay lets WCSession finish activating first.
@@ -127,10 +90,11 @@ struct KidDoseApp: App {
                             )
                         }
                         .task {
+                            // CloudKit pushes wake the app for most partner changes, so this is
+                            // only a safety net. Polling slowly saves battery.
                             while !Task.isCancelled {
-                                try? await Task.sleep(for: .seconds(15))
-
-                                // Family sync relies on pull updates while both devices are open.
+                                try? await Task.sleep(for: .seconds(90))
+                                guard viewModel.familySyncEnabled else { continue }
                                 await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
                             }
                         }
@@ -143,6 +107,10 @@ struct KidDoseApp: App {
 
                     if appLock.isEnabled && !appLock.isUnlocked {
                         AppLockOverlay()
+                    } else if appLock.isEnabled && scenePhase != .active {
+                        // Hides medical details in the app switcher without forcing Face ID
+                        // for things like pulling down Control Center.
+                        PrivacyCover()
                     }
                 }
                 .environment(appLock)
@@ -166,11 +134,28 @@ struct KidDoseApp: App {
                     await viewModel.syncFamilyCloud(context: modelContainer.mainContext)
                     viewModel.refreshLiveActivity(context: modelContainer.mainContext)
                 }
-            case .inactive, .background:
+            case .background:
                 appLock.lock()
+            case .inactive:
+                // Control Center, notification banners and the app switcher make the app
+                // inactive. Only a real trip to the background requires unlocking again.
+                break
             @unknown default:
                 break
             }
+        }
+    }
+}
+
+private struct PrivacyCover: View {
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.regularMaterial)
+                .ignoresSafeArea()
+            Image(systemName: "lock.shield")
+                .font(.system(size: 44, weight: .semibold))
+                .foregroundStyle(.secondary)
         }
     }
 }

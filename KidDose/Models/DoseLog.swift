@@ -11,6 +11,9 @@ final class DoseLog {
     /// 0.0 is a legacy sentinel meaning "use medication default" for records
     /// created before this field existed.
     var usedIntervalHours: Double
+    /// What was given, e.g. "6 ml". Captured from the child's dose note when logged so later
+    /// note edits don't rewrite history. Nil for doses logged before this existed.
+    var amount: String?
 
     var child: Child?
 
@@ -20,7 +23,8 @@ final class DoseLog {
         timestamp: Date = .now,
         givenBy: String,
         child: Child,
-        cloudRecordName: String? = nil
+        cloudRecordName: String? = nil,
+        amount: String? = nil
     ) {
         self.medication = medication.rawValue
         self.timestamp = timestamp
@@ -29,6 +33,8 @@ final class DoseLog {
         // If caller passes 0 (or omits), fall back to the medication's default.
         self.usedIntervalHours = intervalHours > 0 ? intervalHours : medication.intervalHours
         self.child = child
+        let trimmedAmount = amount?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.amount = (trimmedAmount?.isEmpty ?? true) ? nil : trimmedAmount
     }
 
     var medicationEnum: Medication? {

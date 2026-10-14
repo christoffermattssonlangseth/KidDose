@@ -6,6 +6,8 @@ import WatchConnectivity
 /// and handles dose-log requests coming back from the Watch.
 /// A dose logged on the Watch, delivered to the iPhone.
 struct WatchDoseLogRequest {
+    /// Stable child ID. Nil from older Watch builds, which only send the name.
+    let childID: String?
     let childName: String
     let medicationRaw: String
     let intervalHours: Double
@@ -127,6 +129,7 @@ final class PhoneSessionManager: NSObject, WCSessionDelegate {
         let requestID = message["requestID"] as? String
         let givenAt = min((message["requestedAt"] as? Date) ?? .now, .now)
         let request = WatchDoseLogRequest(
+            childID: message["childID"] as? String,
             childName: childName,
             medicationRaw: medicationRaw,
             intervalHours: intervalHours,

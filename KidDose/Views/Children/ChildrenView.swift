@@ -33,6 +33,7 @@ struct ChildrenView: View {
         NavigationStack {
             List {
                 overviewSection
+                caregiverSection
                 childrenSection
                 familySharingSection
                 liveActivitySection
@@ -66,6 +67,25 @@ struct ChildrenView: View {
     private var overviewSection: some View {
         Section("Overview") {
             SettingsInfoText("This tab is for setup. Dose logs and exports are in the History tab.")
+        }
+    }
+
+    private var caregiverSection: some View {
+        Section {
+            TextField(
+                "Your name",
+                text: Binding(
+                    get: { viewModel.caregiverName },
+                    set: { viewModel.caregiverName = $0 }
+                ),
+                prompt: Text("e.g. Mom, Dad, Alex")
+            )
+            .textContentType(.givenName)
+            .submitLabel(.done)
+        } header: {
+            Text("You")
+        } footer: {
+            Text("Shown as \"Given by\" on doses you log, including on your partner's phone. iOS doesn't let apps read your phone's name, so without this doses just say \"\(UIDevice.current.model)\".")
         }
     }
 

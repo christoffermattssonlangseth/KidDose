@@ -38,7 +38,6 @@
 		AA000070 /* iCloudBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100070 /* iCloudBanner.swift */; };
 		AA000071 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100071 /* ColorExtensions.swift */; };
 		AA000072 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100072 /* DesignSystem.swift */; };
-		AA000073 /* DoseRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100073 /* DoseRules.swift */; };
 		AA000074 /* ModernComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100074 /* ModernComponents.swift */; };
 		AA000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA100090 /* Assets.xcassets */; };
 		BA000001 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
@@ -48,7 +47,18 @@
 		BA000005 /* KidDoseLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA100002 /* KidDoseLiveActivityAttributes.swift */; };
 		BA000006 /* KidDoseLiveActivityExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = BAPROD001 /* KidDoseLiveActivityExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		BA000007 /* Medication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100012 /* Medication.swift */; };
-		TT000001 /* DoseRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100073 /* DoseRules.swift */; };
+		CE3C5C34C4B306BEF65A32D3 /* TemperatureLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD9AB2A26747BB04B0F57A93 /* TemperatureLog.swift */; };
+		CECF5E6DFBB0CD740D3A6742 /* DoseRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7B946DAF76719FD46C58DD /* DoseRules.swift */; };
+		CE634BBDDC71D9B6FDEE1E6E /* KidDoseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5FB1078278D6301D4BEB6A /* KidDoseStore.swift */; };
+		CEC285B347FBD584A679123B /* TemperatureCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD8826F74E9D64580B647717 /* TemperatureCard.swift */; };
+		CE2B6E8AF91BF63B5E86BF5A /* DoctorReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD9651B178620A33D3CA11DA /* DoctorReport.swift */; };
+		CE5B73DD2A6509EF70379914 /* GiveDoseButtonIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD0962EBD50D0F46D4161A9A /* GiveDoseButtonIntent.swift */; };
+		CE72E6C716D8AC8503C2CDB6 /* GiveDoseButtonIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD0962EBD50D0F46D4161A9A /* GiveDoseButtonIntent.swift */; };
+		CE917E1858545D94D0822EE9 /* LockScreenDoseRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD9D3CF5E36B1C67E79651A6 /* LockScreenDoseRouter.swift */; };
+		CE843CCC8640DEFCF0FC9EA7 /* LockScreenDoseRouterStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD91848304BC2A9F857DBA8B /* LockScreenDoseRouterStub.swift */; };
+		CE637E565AF7BFFBEA208458 /* KidDoseIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD30F23233E331F2A5CA8C3B /* KidDoseIntents.swift */; };
+		TSBF0001 /* DoseRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSFR0001 /* DoseRulesTests.swift */; };
+		TSBF0002 /* DoseViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSFR0002 /* DoseViewModelTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -79,6 +89,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = BATGT0001;
 			remoteInfo = KidDoseLiveActivityExtension;
+		};
+		TSCIP0001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAPROJ001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AATGT0001;
+			remoteInfo = KidDose;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -147,7 +164,6 @@
 		AA100070 /* iCloudBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudBanner.swift; sourceTree = "<group>"; };
 		AA100071 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
 		AA100072 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
-		AA100073 /* DoseRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseRules.swift; sourceTree = "<group>"; };
 		AA100074 /* ModernComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModernComponents.swift; sourceTree = "<group>"; };
 		AA100080 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA100081 /* KidDose.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDose.entitlements; sourceTree = "<group>"; };
@@ -161,12 +177,22 @@
 		BA100005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BA100006 /* KidDoseWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KidDoseWidgets.entitlements; sourceTree = "<group>"; };
 		BAPROD001 /* KidDoseLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KidDoseLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		TTPROD001 /* KidDoseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KidDoseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CD9AB2A26747BB04B0F57A93 /* TemperatureLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureLog.swift; sourceTree = "<group>"; };
+		CD7B946DAF76719FD46C58DD /* DoseRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseRules.swift; sourceTree = "<group>"; };
+		CD5FB1078278D6301D4BEB6A /* KidDoseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidDoseStore.swift; sourceTree = "<group>"; };
+		CD8826F74E9D64580B647717 /* TemperatureCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureCard.swift; sourceTree = "<group>"; };
+		CD9651B178620A33D3CA11DA /* DoctorReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoctorReport.swift; sourceTree = "<group>"; };
+		CD0962EBD50D0F46D4161A9A /* GiveDoseButtonIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GiveDoseButtonIntent.swift; sourceTree = "<group>"; };
+		CD9D3CF5E36B1C67E79651A6 /* LockScreenDoseRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenDoseRouter.swift; sourceTree = "<group>"; };
+		CD91848304BC2A9F857DBA8B /* LockScreenDoseRouterStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenDoseRouterStub.swift; sourceTree = "<group>"; };
+		CD30F23233E331F2A5CA8C3B /* KidDoseIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidDoseIntents.swift; sourceTree = "<group>"; };
+		TSFR0001 /* DoseRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseRulesTests.swift; sourceTree = "<group>"; };
+		TSFR0002 /* DoseViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoseViewModelTests.swift; sourceTree = "<group>"; };
+		TSPROD001 /* KidDoseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KidDoseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		50EF744C2F5869E800C6A1DF /* KidDoseWatch Watch App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "KidDoseWatch Watch App"; sourceTree = "<group>"; };
-		TTSYNC001 /* KidDoseTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = KidDoseTests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -193,7 +219,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		TTBP0001 /* Frameworks */ = {
+		TSBP0001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -215,10 +241,10 @@
 		AAGRP0000 = {
 			isa = PBXGroup;
 			children = (
+				TSGRP0001 /* KidDoseTests */,
 				AAGRP0001 /* KidDose */,
 				AAGRP0014 /* KidDoseWidgets */,
 				50EF744C2F5869E800C6A1DF /* KidDoseWatch Watch App */,
-				TTSYNC001 /* KidDoseTests */,
 				50EF746C2F5875AB00C6A1DF /* Frameworks */,
 				AAGRP00FF /* Products */,
 			);
@@ -253,10 +279,11 @@
 		AAGRP0003 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				CD7B946DAF76719FD46C58DD /* DoseRules.swift */,
+				CD9AB2A26747BB04B0F57A93 /* TemperatureLog.swift */,
 				AA100010 /* Child.swift */,
 				AA100011 /* DoseLog.swift */,
 				AA100012 /* Medication.swift */,
-				AA100073 /* DoseRules.swift */,
 				50EF74642F5870AC00C6A1DF /* WidgetDataStore.swift */,
 				BA100002 /* KidDoseLiveActivityAttributes.swift */,
 			);
@@ -274,6 +301,11 @@
 		AAGRP0005 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				CD30F23233E331F2A5CA8C3B /* KidDoseIntents.swift */,
+				CD9D3CF5E36B1C67E79651A6 /* LockScreenDoseRouter.swift */,
+				CD0962EBD50D0F46D4161A9A /* GiveDoseButtonIntent.swift */,
+				CD9651B178620A33D3CA11DA /* DoctorReport.swift */,
+				CD5FB1078278D6301D4BEB6A /* KidDoseStore.swift */,
 				50EF746A2F5873C700C6A1DF /* PhoneSessionManager.swift */,
 				AA100030 /* NotificationManager.swift */,
 				AA100031 /* CloudKitService.swift */,
@@ -296,6 +328,7 @@
 		AAGRP0010 /* Home */ = {
 			isa = PBXGroup;
 			children = (
+				CD8826F74E9D64580B647717 /* TemperatureCard.swift */,
 				AA100040 /* HomeView.swift */,
 				AA100041 /* MedicationCard.swift */,
 				AA100042 /* ScheduledAlarmsView.swift */,
@@ -337,6 +370,7 @@
 		AAGRP0014 /* KidDoseWidgets */ = {
 			isa = PBXGroup;
 			children = (
+				CD91848304BC2A9F857DBA8B /* LockScreenDoseRouterStub.swift */,
 				50EF74672F58725800C6A1DF /* KidDoseHomeWidget.swift */,
 				BA100001 /* KidDoseWidgetsBundle.swift */,
 				BA100004 /* KidDoseLiveActivityWidget.swift */,
@@ -353,9 +387,18 @@
 				BAPROD001 /* KidDoseLiveActivityExtension.appex */,
 				50EF74432F5869E800C6A1DF /* KidDoseWatch.app */,
 				50EF74482F5869E800C6A1DF /* KidDoseWatch Watch App.app */,
-				TTPROD001 /* KidDoseTests.xctest */,
+				TSPROD001 /* KidDoseTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		TSGRP0001 /* KidDoseTests */ = {
+			isa = PBXGroup;
+			children = (
+				TSFR0001 /* DoseRulesTests.swift */,
+				TSFR0002 /* DoseViewModelTests.swift */,
+			);
+			path = KidDoseTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -442,25 +485,22 @@
 			productReference = BAPROD001 /* KidDoseLiveActivityExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		TTTGT0001 /* KidDoseTests */ = {
+		TSTGT0001 /* KidDoseTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = TTCFL0001 /* Build configuration list for PBXNativeTarget "KidDoseTests" */;
+			buildConfigurationList = TSCFL0001 /* Build configuration list for PBXNativeTarget "KidDoseTests" */;
 			buildPhases = (
-				TTBP0000 /* Sources */,
-				TTBP0001 /* Frameworks */,
+				TSBP0000 /* Sources */,
+				TSBP0001 /* Frameworks */,
+				TSBP0002 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				TTSYNC001 /* KidDoseTests */,
+				TSTD0001 /* PBXTargetDependency */,
 			);
 			name = KidDoseTests;
-			packageProductDependencies = (
-			);
 			productName = KidDoseTests;
-			productReference = TTPROD001 /* KidDoseTests.xctest */;
+			productReference = TSPROD001 /* KidDoseTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -482,6 +522,10 @@
 					AATGT0001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
+					TSTGT0001 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = AATGT0001;
+					};
 				};
 			};
 			buildConfigurationList = AACFL0000 /* Build configuration list for PBXProject "KidDose" */;
@@ -501,7 +545,7 @@
 				BATGT0001 /* KidDoseLiveActivityExtension */,
 				50EF74422F5869E800C6A1DF /* KidDoseWatch */,
 				50EF74472F5869E800C6A1DF /* KidDoseWatch Watch App */,
-				TTTGT0001 /* KidDoseTests */,
+				TSTGT0001 /* KidDoseTests */,
 			);
 		};
 /* End PBXProject section */
@@ -530,6 +574,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		BABP0002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		TSBP0002 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -573,7 +624,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA000073 /* DoseRules.swift in Sources */,
+				CE637E565AF7BFFBEA208458 /* KidDoseIntents.swift in Sources */,
+				CE917E1858545D94D0822EE9 /* LockScreenDoseRouter.swift in Sources */,
+				CE5B73DD2A6509EF70379914 /* GiveDoseButtonIntent.swift in Sources */,
+				CE2B6E8AF91BF63B5E86BF5A /* DoctorReport.swift in Sources */,
+				CEC285B347FBD584A679123B /* TemperatureCard.swift in Sources */,
+				CE634BBDDC71D9B6FDEE1E6E /* KidDoseStore.swift in Sources */,
+				CECF5E6DFBB0CD740D3A6742 /* DoseRules.swift in Sources */,
+				CE3C5C34C4B306BEF65A32D3 /* TemperatureLog.swift in Sources */,
 				AA000001 /* KidDoseApp.swift in Sources */,
 				50EF74652F5870AC00C6A1DF /* WidgetDataStore.swift in Sources */,
 				AA000002 /* AppDelegate.swift in Sources */,
@@ -607,6 +665,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CE843CCC8640DEFCF0FC9EA7 /* LockScreenDoseRouterStub.swift in Sources */,
+				CE72E6C716D8AC8503C2CDB6 /* GiveDoseButtonIntent.swift in Sources */,
 				BA000003 /* KidDoseWidgetsBundle.swift in Sources */,
 				BA000004 /* KidDoseLiveActivityWidget.swift in Sources */,
 				50EF74682F58725800C6A1DF /* KidDoseHomeWidget.swift in Sources */,
@@ -616,11 +676,12 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		TTBP0000 /* Sources */ = {
+		TSBP0000 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				TT000001 /* DoseRules.swift in Sources */,
+				TSBF0001 /* DoseRulesTests.swift in Sources */,
+				TSBF0002 /* DoseViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -646,6 +707,11 @@
 			isa = PBXTargetDependency;
 			target = BATGT0001 /* KidDoseLiveActivityExtension */;
 			targetProxy = BACIP0001 /* PBXContainerItemProxy */;
+		};
+		TSTD0001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AATGT0001 /* KidDose */;
+			targetProxy = TSCIP0001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -975,9 +1041,10 @@
 			};
 			name = Release;
 		};
-		TTXBC0001 /* Debug */ = {
+		TSXBC0001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -985,14 +1052,19 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER).tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KidDose.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/KidDose";
 			};
 			name = Debug;
 		};
-		TTXBC0002 /* Release */ = {
+		TSXBC0002 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1000,8 +1072,11 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(KIDDOSE_ROOT_BUNDLE_IDENTIFIER).tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KidDose.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/KidDose";
 			};
 			name = Release;
 		};
@@ -1053,11 +1128,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		TTCFL0001 /* Build configuration list for PBXNativeTarget "KidDoseTests" */ = {
+		TSCFL0001 /* Build configuration list for PBXNativeTarget "KidDoseTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				TTXBC0001 /* Debug */,
-				TTXBC0002 /* Release */,
+				TSXBC0001 /* Debug */,
+				TSXBC0002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

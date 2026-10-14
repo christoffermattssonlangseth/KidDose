@@ -12,9 +12,17 @@ A SwiftUI iOS app for tracking ibuprofen and paracetamol doses for multiple chil
 - Live countdown timers to next allowed dose
 - Lock Screen Live Activity + Dynamic Island with the next dose window (flips to "Ready" on time, even in the background)
 - Home Screen widgets (small / medium) and Lock Screen widgets (circular / rectangular / inline)
+- Optional daily limit per child and medication (max doses per rolling 24 h) with a warning before going over
+- Undo for 10 seconds after giving a dose
+- Amount saved with each dose (e.g. "6 ml"), editable from the dose detail screen
+- Temperature and symptom log with a 24 h fever chart
+- Doctor summary PDF (last 7 days of doses and temperatures) from History → Export
+- Siri and Shortcuts: "Give ibuprofen in KidDose", "When is the next dose in KidDose" (asks to confirm, refuses doses that aren't due)
+- Two-tap "Give" button in the Live Activity and Lock Screen widget
 - Full history with per-child/per-medication filters and stats
 - Swipe-to-delete children (cascade deletes all dose history)
 - Dark mode support
+- Unit tests for the dosing rules (run with ⌘U in Xcode)
 
 ---
 

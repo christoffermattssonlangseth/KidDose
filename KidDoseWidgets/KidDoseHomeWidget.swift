@@ -1,11 +1,14 @@
 import WidgetKit
 import SwiftUI
+import AppIntents
 
 // MARK: - Timeline Entry
 
 struct KidDoseWidgetEntry: TimelineEntry {
     let date: Date
     let snapshots: [WidgetChildSnapshot]
+    /// A Lock Screen "Give" button waiting for its confirming tap.
+    var pending: PendingDoseConfirmation? = nil
 }
 
 // MARK: - Timeline Provider
@@ -31,7 +34,7 @@ struct KidDoseWidgetProvider: TimelineProvider {
         if context.isPreview && snapshots.isEmpty {
             completion(KidDoseWidgetEntry(date: .now, snapshots: Self.sampleSnapshots))
         } else {
-            completion(KidDoseWidgetEntry(date: .now, snapshots: snapshots))
+            completion(KidDoseWidgetEntry(date: .now, snapshots: snapshots, pending: WidgetDataStore.readPendingConfirmation()))
         }
     }
 
@@ -54,7 +57,18 @@ struct KidDoseWidgetProvider: TimelineProvider {
             entryDates.insert(dueDate.addingTimeInterval(1))
             entryDates.insert(dueDate.addingTimeInterval(61))
         }
-        let entries = entryDates.sorted().map { KidDoseWidgetEntry(date: $0, snapshots: snapshots) }
+        // An armed "Tap again to give" button reverts on its own when the window passes.
+        let pending = WidgetDataStore.readPendingConfirmation(now: now)
+        if let pending {
+            entryDates.insert(pending.expiresAt.addingTimeInterval(0.5))
+        }
+        let entries = entryDates.sorted().map { date in
+            KidDoseWidgetEntry(
+                date: date,
+                snapshots: snapshots,
+                pending: (pending.map { date < $0.expiresAt } ?? false) ? pending : nil
+            )
+        }
 
         // Reload a little after the last planned flip, or every few hours when idle. The app
         // also reloads the widget directly whenever a dose is logged or synced.
@@ -107,7 +121,7 @@ struct KidDoseWidgetView: View {
             InlineLockScreenView(entry: entry)
         case .systemSmall:
             if let snapshot = mostUrgentSnapshot(in: entry.snapshots, at: entry.date) {
-                SmallWidgetView(snapshot: snapshot, now: entry.date)
+                SmallWidgetView(snapshot: snapshot, now: entry.date, pending: entry.pending)
             } else {
                 EmptyStateView()
             }
@@ -146,6 +160,13 @@ private enum DoseStatus {
     /// Open for more than a minute, matching the Home screen's "Overdue" badge.
     case overdue(Date)
     case waiting(Date)
+
+    var isReadyOrOverdue: Bool {
+        switch self {
+        case .ready, .overdue: return true
+        default: return false
+        }
+    }
 }
 
 private func doseStatus(for snapshot: WidgetChildSnapshot, medication: Medication, at now: Date) -> DoseStatus {
@@ -205,6 +226,7 @@ private func focusedDose(in snapshots: [WidgetChildSnapshot], at now: Date) -> F
 private struct SmallWidgetView: View {
     let snapshot: WidgetChildSnapshot
     let now: Date
+    var pending: PendingDoseConfirmation? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -218,11 +240,15 @@ private struct SmallWidgetView: View {
                 )
             }
             Spacer(minLength: 0)
-            if let focus = focusedDose(in: [snapshot], at: now), case .waiting(let next) = focus.status {
-                Text("\(focus.medication.displayName) at \(timeLabel(next))")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+            if let focus = focusedDose(in: [snapshot], at: now) {
+                if case .waiting(let next) = focus.status {
+                    Text("\(focus.medication.displayName) at \(timeLabel(next))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else if let button = GiveButtonModel(focus: focus, pending: pending) {
+                    GiveDoseWidgetButton(model: button, compact: false)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -392,6 +418,47 @@ private struct StatusText: View {
     }
 }
 
+// MARK: - Give Button
+
+/// What a widget Give button should do, or nil when no button should be offered.
+private struct GiveButtonModel {
+    let childID: String
+    let medication: Medication
+    let isArmed: Bool
+
+    init?(focus: FocusedDose, pending: PendingDoseConfirmation?) {
+        guard
+            focus.status.isReadyOrOverdue,
+            let childID = focus.snapshot.childID,
+            !focus.snapshot.isLimitReached(for: focus.medication)
+        else { return nil }
+        self.childID = childID
+        self.medication = focus.medication
+        self.isArmed = pending?.matches(childID: childID, medication: focus.medication.rawValue) ?? false
+    }
+}
+
+private struct GiveDoseWidgetButton: View {
+    let model: GiveButtonModel
+    let compact: Bool
+
+    var body: some View {
+        Button(intent: GiveDoseButtonIntent(childID: model.childID, medication: model.medication)) {
+            Label(
+                model.isArmed ? "Tap to confirm" : "Give",
+                systemImage: model.isArmed ? "hand.tap.fill" : "plus.circle.fill"
+            )
+            .font(compact ? .caption2.weight(.bold) : .caption.weight(.bold))
+            .lineLimit(1)
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.capsule)
+        .controlSize(.mini)
+        .tint(model.isArmed ? .orange : model.medication.color)
+    }
+}
+
 // MARK: - Lock Screen: Circular
 
 private struct CircularLockScreenView: View {
@@ -440,7 +507,26 @@ private struct RectangularLockScreenView: View {
     let entry: KidDoseWidgetEntry
 
     var body: some View {
-        if let snapshot = mostUrgentSnapshot(in: entry.snapshots, at: entry.date) {
+        if let focus = focusedDose(in: entry.snapshots, at: entry.date),
+           let button = GiveButtonModel(focus: focus, pending: entry.pending) {
+            // A dose is ready: name it and offer the two-tap Give button.
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Image(systemName: focus.medication.iconName)
+                        .font(.caption2.weight(.semibold))
+                    Text("\(focus.snapshot.name) · \(focus.medication.displayName)")
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                }
+                .widgetAccentable()
+                Text(button.isArmed ? "Tap again within a few seconds" : "Ready now")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                GiveDoseWidgetButton(model: button, compact: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else if let snapshot = mostUrgentSnapshot(in: entry.snapshots, at: entry.date) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Image(systemName: "pills.fill")

@@ -12,12 +12,18 @@ final class Child {
     var paracetamolSessionEndedAt: Date?
     var ibuprofenCycleStartAt: Date?
     var paracetamolCycleStartAt: Date?
+    /// Stable local identifier. Names can change or repeat, so alerts and the Watch use this.
+    /// Optional for records created before it existed; `DoseViewModel` backfills it at launch.
+    var uid: String?
     /// Parent-set cap on doses per rolling 24 h, copied from the product label. Nil = no cap.
     var ibuprofenMaxDailyDoses: Int?
     var paracetamolMaxDailyDoses: Int?
 
     @Relationship(deleteRule: .cascade, inverse: \DoseLog.child)
     var doses: [DoseLog] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \TemperatureLog.child)
+    var readings: [TemperatureLog]? = []
 
     init(
         name: String,
@@ -30,7 +36,8 @@ final class Child {
         paracetamolCycleStartAt: Date? = nil,
         ibuprofenMaxDailyDoses: Int? = nil,
         paracetamolMaxDailyDoses: Int? = nil,
-        cloudRecordName: String? = nil
+        cloudRecordName: String? = nil,
+        uid: String? = UUID().uuidString
     ) {
         self.name = name
         self.colorHex = colorHex
@@ -43,6 +50,28 @@ final class Child {
         self.ibuprofenMaxDailyDoses = ibuprofenMaxDailyDoses
         self.paracetamolMaxDailyDoses = paracetamolMaxDailyDoses
         self.cloudRecordName = cloudRecordName
+        self.uid = uid
+    }
+
+    /// Identifier for notifications and Watch requests. Falls back to the name only for
+    /// legacy records that have not been backfilled yet.
+    var stableID: String { uid ?? name }
+
+    var temperatureReadings: [TemperatureLog] { readings ?? [] }
+
+    func maxDailyDoses(for medication: Medication) -> Int? {
+        switch medication {
+        case .ibuprofen:    return ibuprofenMaxDailyDoses
+        case .paracetamol:  return paracetamolMaxDailyDoses
+        }
+    }
+
+    func setMaxDailyDoses(_ value: Int?, for medication: Medication) {
+        let normalized = (value ?? 0) > 0 ? value : nil
+        switch medication {
+        case .ibuprofen:    ibuprofenMaxDailyDoses = normalized
+        case .paracetamol:  paracetamolMaxDailyDoses = normalized
+        }
     }
 
     /// Convenience: last dose for a given medication, sorted by timestamp descending.
@@ -55,7 +84,7 @@ final class Child {
 
     /// Notification identifier for a child + medication pair.
     func notificationID(for medication: Medication) -> String {
-        "\(name)-\(medication.rawValue)"
+        "\(stableID)-\(medication.rawValue)"
     }
 
     func doseNote(for medication: Medication) -> String? {
@@ -109,24 +138,6 @@ final class Child {
             ibuprofenCycleStartAt = timestamp
         case .paracetamol:
             paracetamolCycleStartAt = timestamp
-        }
-    }
-
-    func maxDailyDoses(for medication: Medication) -> Int? {
-        switch medication {
-        case .ibuprofen:
-            return ibuprofenMaxDailyDoses
-        case .paracetamol:
-            return paracetamolMaxDailyDoses
-        }
-    }
-
-    func setMaxDailyDoses(_ limit: Int?, for medication: Medication) {
-        switch medication {
-        case .ibuprofen:
-            ibuprofenMaxDailyDoses = limit
-        case .paracetamol:
-            paracetamolMaxDailyDoses = limit
         }
     }
 }

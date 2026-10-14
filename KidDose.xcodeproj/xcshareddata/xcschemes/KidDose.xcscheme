@@ -34,7 +34,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "TTTGT0001"
+               BlueprintIdentifier = "TSTGT0001"
                BuildableName = "KidDoseTests.xctest"
                BlueprintName = "KidDoseTests"
                ReferencedContainer = "container:KidDose.xcodeproj">

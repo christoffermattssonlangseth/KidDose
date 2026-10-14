@@ -51,7 +51,13 @@ final class LiveActivityManager {
         static let preferLargeText = "KidDose.liveActivity.preferLargeText"
         static let displayMode = "KidDose.liveActivity.displayMode"
         static let dueSoonThreshold = "KidDose.liveActivity.dueSoonThreshold"
+        static let startedActivityID = "KidDose.liveActivity.startedActivityID"
+        static let startedAt = "KidDose.liveActivity.startedAt"
     }
+
+    /// iOS ends a Live Activity after 8 hours. When the app is open and the current one is
+    /// older than this, it is replaced with a fresh one so it lasts through the next interval.
+    private let renewAfter: TimeInterval = 6 * 3600
 
     private let defaults = UserDefaults.standard
 
@@ -160,6 +166,8 @@ final class LiveActivityManager {
         let secondaryLastDose = secondary.flatMap {
             viewModel.latestDoseInCurrentCycle(for: $0.medication, child: $0.child)
         }
+        let primaryChildID = primary.child.stableID
+        let pending = WidgetDataStore.readPendingConfirmation()
         let state = KidDoseLiveActivityAttributes.ContentState(
             primaryChildName: primary.child.name,
             primaryMedicationName: primary.medication.displayName,
@@ -176,19 +184,35 @@ final class LiveActivityManager {
             secondaryNextDose: secondary?.nextDate,
             secondaryLastDose: secondaryLastDose?.timestamp,
             secondaryIntervalHours: secondary?.intervalHours,
-            secondaryDoseNote: secondary.flatMap { $0.child.doseNote(for: $0.medication) }
+            secondaryDoseNote: secondary.flatMap { $0.child.doseNote(for: $0.medication) },
+            primaryChildID: primaryChildID,
+            primaryArmedUntil: (pending?.matches(
+                childID: primaryChildID,
+                medication: primary.medication.rawValue
+            ) ?? false) ? pending?.expiresAt : nil,
+            primaryLimitReached: viewModel.dailyLimitStatus(
+                for: primary.medication,
+                child: primary.child
+            )?.isReached ?? false
         )
 
         // iOS re-renders the Live Activity when `staleDate` passes. Pointing it at the next
         // dose window is what flips the Lock Screen from a countdown to "Ready" on time,
         // even while the app is in the background. Nil when nothing is pending in the future.
-        let staleDate = [primary.nextDate, secondary?.nextDate]
+        // Also re-render when an armed Lock Screen button expires, so it reverts to "Give".
+        let staleDate = [primary.nextDate, secondary?.nextDate, state.primaryArmedUntil?.addingTimeInterval(0.5)]
             .compactMap { $0 }
             .filter { $0.timeIntervalSinceNow > 1 }
             .min()
         let content = ActivityContent(state: state, staleDate: staleDate)
 
-        let activities = liveActivities
+        var activities = liveActivities
+        if let activity = activities.first, isAppForegroundActive, shouldRenew(activity) {
+            // Ending immediately and requesting a new one below restarts the 8-hour clock.
+            Task { await activity.end(nil, dismissalPolicy: .immediate) }
+            activities.removeAll { $0.id == activity.id }
+        }
+
         if let activity = activities.first {
             // Clean up stray duplicates so only one card is shown.
             for extra in activities.dropFirst() {
@@ -217,11 +241,13 @@ final class LiveActivityManager {
 
         let attributes = KidDoseLiveActivityAttributes(title: "KidDose")
         do {
-            _ = try Activity<KidDoseLiveActivityAttributes>.request(
+            let activity = try Activity<KidDoseLiveActivityAttributes>.request(
                 attributes: attributes,
                 content: content,
                 pushType: nil
             )
+            defaults.set(activity.id, forKey: Keys.startedActivityID)
+            defaults.set(Date.now, forKey: Keys.startedAt)
             lastStatusMessage = "Live Activity started."
             lastErrorMessage = nil
         } catch {
@@ -229,6 +255,19 @@ final class LiveActivityManager {
             lastErrorMessage = error.localizedDescription
             print("[LiveActivity] request failed: \(error)")
         }
+    }
+
+    private func shouldRenew(_ activity: Activity<KidDoseLiveActivityAttributes>) -> Bool {
+        guard
+            defaults.string(forKey: Keys.startedActivityID) == activity.id,
+            let startedAt = defaults.object(forKey: Keys.startedAt) as? Date
+        else {
+            // Started by an older build: start tracking its age from now.
+            defaults.set(activity.id, forKey: Keys.startedActivityID)
+            defaults.set(Date.now, forKey: Keys.startedAt)
+            return false
+        }
+        return Date.now.timeIntervalSince(startedAt) > renewAfter
     }
 
     func endAll() {

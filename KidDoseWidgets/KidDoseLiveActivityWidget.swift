@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import WidgetKit
 import SwiftUI
 
@@ -153,6 +154,28 @@ private struct LockScreenLiveActivityView: View {
                 )
                 .progressViewStyle(.linear)
                 .tint(tint)
+            }
+
+            if phase != .upcoming,
+               state.primaryLimitReached != true,
+               let childID = state.primaryChildID,
+               let medication = Medication(rawValue: primary.medicationName.lowercased()) {
+                let awaiting = (state.primaryArmedUntil ?? .distantPast) > now
+                Button(intent: GiveDoseButtonIntent(childID: childID, medication: medication)) {
+                    Label(
+                        awaiting ? "Tap again to give \(primary.medicationName)" : "Give \(primary.medicationName)",
+                        systemImage: awaiting ? "hand.tap.fill" : "plus.circle.fill"
+                    )
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .tint(awaiting ? .orange : primary.color)
+            } else if phase != .upcoming, state.primaryLimitReached == true {
+                Label("Daily limit reached. Open KidDose to decide.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
             }
 
             if let secondary = state.secondaryItem {

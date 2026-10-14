@@ -40,19 +40,24 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     /// Schedules a Critical Alert (or regular alert) when the next dose is allowed.
     func scheduleDoseReady(
+        childID: String,
         childName: String,
         medication: Medication,
         body: String,
         nextAllowedAt: Date
     ) {
-        let identifier = notificationID(childName: childName, medication: medication)
+        let identifier = notificationID(childID: childID, medication: medication)
 
-        // Cancel any existing pending notification for this pair.
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+        // Cancel any existing pending notification for this pair, including one created by
+        // older builds that keyed alerts by the child's name.
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: [identifier, legacyNotificationID(childName: childName, medication: medication)]
+        )
 
         let content = UNMutableNotificationContent()
         content.title = "\(medication.displayName) ready for \(childName)"
         content.body = body
+        content.threadIdentifier = childID
         content.sound = criticalAlertsGranted
             ? UNNotificationSound.defaultCriticalSound(withAudioVolume: 1.0)
             : .default
@@ -114,9 +119,13 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: - Cancel
 
-    func cancelDoseNotification(childName: String, medication: Medication) {
-        let identifier = notificationID(childName: childName, medication: medication)
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+    func cancelDoseNotification(childID: String, childName: String, medication: Medication) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: [
+                notificationID(childID: childID, medication: medication),
+                legacyNotificationID(childName: childName, medication: medication)
+            ]
+        )
     }
 
     /// Clears every pending dose-ready notification. Used at launch before rescheduling
@@ -134,7 +143,12 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: - Helpers
 
-    func notificationID(childName: String, medication: Medication) -> String {
+    func notificationID(childID: String, medication: Medication) -> String {
+        "\(childID)-\(medication.rawValue)"
+    }
+
+    /// Identifier used before children had stable IDs. Still removed so old alerts can't linger.
+    private func legacyNotificationID(childName: String, medication: Medication) -> String {
         "\(childName)-\(medication.rawValue)"
     }
 

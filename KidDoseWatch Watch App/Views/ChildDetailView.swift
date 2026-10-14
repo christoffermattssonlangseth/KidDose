@@ -34,9 +34,10 @@ struct ChildDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $logTarget) { target in
             DoseLogView(
+                childID: snapshot.childID,
                 childName: snapshot.name,
                 medication: target.medication,
-                intervalHours: target.medication.intervalHours
+                intervalHours: snapshot.intervalHours(for: target.medication)
             )
             .environment(sessionManager)
         }

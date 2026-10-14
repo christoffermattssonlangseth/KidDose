@@ -43,7 +43,10 @@ struct HomeView: View {
                         EmptyStateView(isWaitingForFamilyChildren: isWaitingForFamilyChildren)
                     } else {
                         // ── Child selector ──────────────────────────────
-                        if visibleChildren.count >= 2 {
+                        if visibleChildren.count == 1, let only = visibleChildren.first {
+                            ChildHeader(child: only)
+                                .padding(.horizontal)
+                        } else if visibleChildren.count >= 2 {
                             ChildSwitcher(
                                 children: visibleChildren,
                                 selectedID: resolvedSelectedChildID
@@ -56,28 +59,10 @@ struct HomeView: View {
                         }
 
                         if let child = selectedChild {
-                            let upcoming = viewModel.upcomingDoses(for: [child])
-
-                            if let next = upcoming.first {
-                                NextDoseSection(
-                                    item: next,
-                                    lastDoseAt: viewModel.latestDoseInCurrentCycle(
-                                        for: next.medication,
-                                        child: next.child
-                                    )?.timestamp,
-                                    additionalCount: max(0, upcoming.count - 1)
-                                ) {
-                                    showFullSchedule = true
-                                }
-                                .padding(.horizontal)
-                                .transition(.blurReplace)
-                                .kidDoseScrollDepth()
-                            }
-
                             // ── Medication cards ────────────────────────────
                             // .id on the VStack (not individual cards) so the whole
                             // group resets State atomically and can fade as one unit.
-                            VStack(spacing: 8) {
+                            VStack(spacing: 12) {
                                 ForEach(Medication.allCases, id: \.rawValue) { med in
                                     MedicationCard(medication: med, child: child)
                                         .kidDoseScrollDepth()
@@ -86,6 +71,10 @@ struct HomeView: View {
                             .id(child.persistentModelID)
                             .transition(.blurReplace)
                             .padding(.horizontal)
+
+                            TemperatureCard(child: child)
+                                .padding(.horizontal)
+                                .kidDoseScrollDepth()
 
                             Button {
                                 showStartNewCycleConfirm = true
@@ -104,14 +93,39 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 8)
             }
+            .safeAreaInset(edge: .bottom) {
+                if viewModel.hasUndoableDose, let dose = viewModel.undoableDose {
+                    UndoDoseBanner(dose: dose) {
+                        withAnimation(.snappy) {
+                            viewModel.undoLastDose(context: context)
+                        }
+                    } onDismiss: {
+                        withAnimation(.snappy) {
+                            viewModel.dismissUndo()
+                        }
+                    }
+                    .id(dose.persistentModelID)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.snappy, value: viewModel.undoableDose?.persistentModelID)
             .navigationTitle("KidDose")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if selectedChild != nil {
+                        Button {
+                            showFullSchedule = true
+                        } label: {
+                            Label("Schedule", systemImage: "calendar")
+                        }
+                    }
                     Button {
                         showAlarms = true
                     } label: {
-                        Image(systemName: "bell.badge")
+                        Label("Alarms", systemImage: "bell.badge")
                             .symbolRenderingMode(.hierarchical)
                     }
                 }
@@ -161,107 +175,28 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Next Dose (hero)
+// MARK: - Child Header (single child)
 
-struct NextDoseSection: View {
-    let item: ScheduledDose
-    var lastDoseAt: Date? = nil
-    let additionalCount: Int
-    let onViewFullSchedule: () -> Void
+/// Names the child when there is only one, since the switcher is hidden then.
+private struct ChildHeader: View {
+    let child: Child
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let remaining = item.nextDate.timeIntervalSince(context.date)
-            let isReady = remaining <= 0
-            let tint: Color = isReady ? .green : item.medication.color
-
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("NEXT DOSE")
+        HStack(spacing: 8) {
+            Circle()
+                .fill(Color(hex: child.colorHex))
+                .frame(width: 26, height: 26)
+                .overlay {
+                    Text(String(child.name.prefix(1)).uppercased())
                         .font(.caption.weight(.bold))
-                        .tracking(1.2)
-                        .foregroundStyle(.secondary)
-                    if additionalCount > 0 {
-                        Text("+\(additionalCount) more")
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(.tertiary)
-                    }
-                    Spacer()
-                    Button {
-                        onViewFullSchedule()
-                    } label: {
-                        HStack(spacing: 3) {
-                            Text("Schedule")
-                            Image(systemName: "chevron.right")
-                                .font(.caption2.weight(.bold))
-                        }
-                        .font(.caption.weight(.semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                        .foregroundStyle(.white)
                 }
-
-                HStack(spacing: 18) {
-                    DoseProgressRing(
-                        progress: isReady
-                            ? 1
-                            : KidDoseTime.progress(
-                                start: lastDoseAt ?? item.nextDate.addingTimeInterval(-item.intervalHours * 3600),
-                                end: item.nextDate,
-                                now: context.date
-                            ),
-                        tint: tint,
-                        lineWidth: 9
-                    ) {
-                        Image(systemName: isReady ? "checkmark" : item.medication.iconName)
-                            .font(.title2.weight(.bold))
-                            .foregroundStyle(tint)
-                            .contentTransition(.symbolEffect(.replace))
-                    }
-                    .frame(width: 84, height: 84)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Group {
-                            if isReady {
-                                Text("Ready")
-                            } else {
-                                Text(KidDoseTime.timer(remaining))
-                                    .contentTransition(.numericText(countsDown: true))
-                                    .animation(.snappy, value: Int(remaining))
-                            }
-                        }
-                        .font(.system(size: 40, weight: .bold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(isReady ? .green : .primary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-
-                        Text("\(item.medication.displayName) · \(item.child.name)")
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
-                        Text(formattedTime(item.nextDate))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer(minLength: 0)
-                }
-            }
-            .padding(16)
-            .kidDoseCardSurface(cornerRadius: 26)
-            .accessibilityElement(children: .combine)
+            Text(child.name)
+                .font(.title3.weight(.semibold))
+                .lineLimit(1)
+            Spacer()
         }
-    }
-
-    private func formattedTime(_ date: Date) -> String {
-        let cal = Calendar.current
-        let timeStr = date.formatted(date: .omitted, time: .shortened)
-        if cal.isDateInToday(date) {
-            return "Today at \(timeStr)"
-        } else if cal.isDateInTomorrow(date) {
-            return "Tomorrow at \(timeStr)"
-        } else {
-            return "\(date.formatted(.dateTime.weekday(.abbreviated))) at \(timeStr)"
-        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -341,15 +276,76 @@ private struct ChildSwitcher: View {
     }
 }
 
+// MARK: - Undo Banner
+
+/// Shown for a few seconds after giving a dose so an accidental tap can be reversed.
+private struct UndoDoseBanner: View {
+    let dose: DoseLog
+    let onUndo: () -> Void
+    let onDismiss: () -> Void
+
+    @State private var shownAt = Date.now
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title3)
+                .foregroundStyle(.green)
+                .symbolEffect(.bounce, value: shownAt)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(dose.medicationEnum?.displayName ?? "Dose") given")
+                    .font(.subheadline.weight(.semibold))
+                Text("to \(dose.child?.name ?? "child") at \(dose.timestamp.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            Button("Undo", action: onUndo)
+                .font(.subheadline.weight(.bold))
+                .kidDoseSecondaryButton()
+                .controlSize(.small)
+                .accessibilityHint("Removes this dose")
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .kidDoseGlass(in: Capsule())
+        .overlay(alignment: .bottom) {
+            // Drains over the undo window so it's clear how long Undo stays available.
+            TimelineView(.animation(minimumInterval: 0.1)) { context in
+                let elapsed = context.date.timeIntervalSince(shownAt)
+                let total = Double(DoseViewModel.undoWindow.components.seconds)
+                GeometryReader { proxy in
+                    Capsule()
+                        .fill(Color.green.opacity(0.6))
+                        .frame(width: proxy.size.width * max(0, 1 - elapsed / total), height: 2)
+                }
+                .frame(height: 2)
+            }
+            .padding(.horizontal, 22)
+        }
+        .gesture(
+            DragGesture(minimumDistance: 12).onEnded { value in
+                if value.translation.height > 20 { onDismiss() }
+            }
+        )
+    }
+}
+
 // MARK: - Empty State
 
 private struct EmptyStateView: View {
     let isWaitingForFamilyChildren: Bool
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 60
 
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: isWaitingForFamilyChildren ? "arrow.triangle.2.circlepath.icloud" : "person.2.fill")
-                .font(.system(size: 60))
+                .font(.system(size: iconSize))
                 .foregroundStyle(.secondary)
                 .symbolRenderingMode(.hierarchical)
                 .symbolEffect(.pulse, options: .repeating, isActive: isWaitingForFamilyChildren)
