@@ -21,8 +21,8 @@ struct KidDoseLiveActivityAttributes: ActivityAttributes {
         var secondaryDoseNote: String?
         /// Lets the Lock Screen "Give dose" button target the right child.
         var primaryChildID: String?
-        /// The primary button was tapped once and is waiting for the confirming tap.
-        var primaryAwaitingConfirmation: Bool?
+        /// The primary button was tapped once and accepts the confirming tap until this time.
+        var primaryArmedUntil: Date?
         /// The parent-set daily limit is reached, so no button is offered.
         var primaryLimitReached: Bool?
     }

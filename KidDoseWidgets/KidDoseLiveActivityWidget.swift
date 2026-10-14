@@ -160,7 +160,7 @@ private struct LockScreenLiveActivityView: View {
                state.primaryLimitReached != true,
                let childID = state.primaryChildID,
                let medication = Medication(rawValue: primary.medicationName.lowercased()) {
-                let awaiting = state.primaryAwaitingConfirmation == true
+                let awaiting = (state.primaryArmedUntil ?? .distantPast) > now
                 Button(intent: GiveDoseButtonIntent(childID: childID, medication: medication)) {
                     Label(
                         awaiting ? "Tap again to give \(primary.medicationName)" : "Give \(primary.medicationName)",

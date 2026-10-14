@@ -94,7 +94,7 @@ struct HomeView: View {
                 .padding(.vertical, 8)
             }
             .safeAreaInset(edge: .bottom) {
-                if let dose = viewModel.undoableDose, !dose.isDeleted {
+                if viewModel.hasUndoableDose, let dose = viewModel.undoableDose {
                     UndoDoseBanner(dose: dose) {
                         withAnimation(.snappy) {
                             viewModel.undoLastDose(context: context)

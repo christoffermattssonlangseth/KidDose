@@ -49,6 +49,10 @@ final class DoseViewModel {
     /// The dose just logged on this device, offered for undo for a few seconds.
     var undoableDose: DoseLog?
     @ObservationIgnored private var undoExpiryTask: Task<Void, Never>?
+    /// Course state from just before the undoable dose, so Undo can put it back
+    /// (giving a dose resumes a skipped course and can move the course start).
+    @ObservationIgnored private var undoPriorSessionEndedAt: Date?
+    @ObservationIgnored private var undoPriorCycleStartAt: Date?
     static let undoWindow: Duration = .seconds(10)
 
     // MARK: - iCloud Status
@@ -134,6 +138,10 @@ final class DoseViewModel {
             await FamilyCloudSyncService.shared.uploadLocalData(context: context)
         }
         await FamilyCloudSyncService.shared.sync(context: context)
+        // A partner may have deleted the dose the undo banner points at.
+        if undoableDose != nil, !hasUndoableDose {
+            dismissUndo()
+        }
         refreshLiveActivity(context: context)
     }
 
@@ -329,6 +337,8 @@ final class DoseViewModel {
         context: ModelContext
     ) {
         let previousLatestDose = latestDoseInCurrentCycle(for: medication, child: child)
+        let priorSessionEndedAt = child.sessionEndedAt(for: medication)
+        let priorCycleStartAt = child.cycleStartAt(for: medication)
         if child.sessionEndedAt(for: medication) != nil {
             child.setSessionEndedAt(nil, for: medication)
         }
@@ -347,7 +357,7 @@ final class DoseViewModel {
         context.insert(log)
         saveContext(context)
         refreshLiveActivity(context: context)
-        offerUndo(for: log)
+        offerUndo(for: log, priorSessionEndedAt: priorSessionEndedAt, priorCycleStartAt: priorCycleStartAt)
 
         Task {
             await FamilyCloudSyncService.shared.upsertDose(log, context: context)
@@ -388,6 +398,9 @@ final class DoseViewModel {
             let recordNames = newerDoses.compactMap(\.cloudRecordName)
 
             for dose in newerDoses {
+                if undoableDose === dose {
+                    dismissUndo()
+                }
                 context.delete(dose)
             }
             saveContext(context)
@@ -415,10 +428,15 @@ final class DoseViewModel {
 
     @MainActor
     func deleteChild(_ child: Child, context: ModelContext) {
+        // Read everything needed for the cloud delete now; the model is gone once saved.
+        let childRecordName = child.cloudRecordName
         let relatedRecordNames = child.doses.compactMap(\.cloudRecordName)
             + child.temperatureReadings.compactMap(\.cloudRecordName)
         Task {
-            await FamilyCloudSyncService.shared.deleteChild(child, doseRecordNames: relatedRecordNames)
+            await FamilyCloudSyncService.shared.deleteChild(
+                recordName: childRecordName,
+                relatedRecordNames: relatedRecordNames
+            )
         }
         // Pending "dose ready" alerts would otherwise still fire for a deleted child.
         for medication in Medication.allCases {
@@ -575,10 +593,12 @@ final class DoseViewModel {
 
     // MARK: - Undo
 
-    private func offerUndo(for dose: DoseLog) {
+    private func offerUndo(for dose: DoseLog, priorSessionEndedAt: Date?, priorCycleStartAt: Date?) {
         // Only doses logged "now" on this device; past doses come from a deliberate sheet.
         guard abs(dose.timestamp.timeIntervalSinceNow) < 120 else { return }
         undoableDose = dose
+        undoPriorSessionEndedAt = priorSessionEndedAt
+        undoPriorCycleStartAt = priorCycleStartAt
         undoExpiryTask?.cancel()
         undoExpiryTask = Task { [weak self] in
             try? await Task.sleep(for: Self.undoWindow)
@@ -592,13 +612,35 @@ final class DoseViewModel {
     func dismissUndo() {
         undoExpiryTask?.cancel()
         undoableDose = nil
+        undoPriorSessionEndedAt = nil
+        undoPriorCycleStartAt = nil
+    }
+
+    /// True while the undo banner's dose is still a live record.
+    var hasUndoableDose: Bool {
+        guard let dose = undoableDose else { return false }
+        return !dose.isDeleted && dose.modelContext != nil
     }
 
     @MainActor
     func undoLastDose(context: ModelContext) {
-        guard let dose = undoableDose else { return }
+        guard let dose = undoableDose, hasUndoableDose else {
+            dismissUndo()
+            return
+        }
+        let priorSessionEndedAt = undoPriorSessionEndedAt
+        let priorCycleStartAt = undoPriorCycleStartAt
         dismissUndo()
-        guard !dose.isDeleted else { return }
+
+        // Put the course back the way it was before the dose (e.g. still "Skipped") before
+        // deleting, so deleteDose reschedules or cancels alerts against the restored state.
+        if let child = dose.child, let medication = dose.medicationEnum {
+            child.setSessionEndedAt(priorSessionEndedAt, for: medication)
+            child.setCycleStartAt(priorCycleStartAt, for: medication)
+            Task {
+                await FamilyCloudSyncService.shared.upsertChild(child, context: context)
+            }
+        }
         deleteDose(dose, context: context)
     }
 

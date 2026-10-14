@@ -186,10 +186,10 @@ final class LiveActivityManager {
             secondaryIntervalHours: secondary?.intervalHours,
             secondaryDoseNote: secondary.flatMap { $0.child.doseNote(for: $0.medication) },
             primaryChildID: primaryChildID,
-            primaryAwaitingConfirmation: pending?.matches(
+            primaryArmedUntil: (pending?.matches(
                 childID: primaryChildID,
                 medication: primary.medication.rawValue
-            ) ?? false,
+            ) ?? false) ? pending?.expiresAt : nil,
             primaryLimitReached: viewModel.dailyLimitStatus(
                 for: primary.medication,
                 child: primary.child
@@ -199,7 +199,8 @@ final class LiveActivityManager {
         // iOS re-renders the Live Activity when `staleDate` passes. Pointing it at the next
         // dose window is what flips the Lock Screen from a countdown to "Ready" on time,
         // even while the app is in the background. Nil when nothing is pending in the future.
-        let staleDate = [primary.nextDate, secondary?.nextDate]
+        // Also re-render when an armed Lock Screen button expires, so it reverts to "Give".
+        let staleDate = [primary.nextDate, secondary?.nextDate, state.primaryArmedUntil?.addingTimeInterval(0.5)]
             .compactMap { $0 }
             .filter { $0.timeIntervalSinceNow > 1 }
             .min()

@@ -29,10 +29,10 @@ struct KidDoseApp: App {
                     let ctx = modelContainer.mainContext
                     let children = (try? ctx.fetch(FetchDescriptor<Child>())) ?? []
                     // Match by stable ID first; the name is only a fallback for older Watch builds.
-                    let child = request.childID.flatMap { id in children.first { $0.uid == id } }
+                    let matchedChild = request.childID.flatMap { id in children.first { $0.uid == id } }
                         ?? children.first { $0.name == request.childName }
                     guard
-                        let child,
+                        let child = matchedChild,
                         let medication = Medication(rawValue: request.medicationRaw)
                     else { return }
                     initialViewModel.logDose(

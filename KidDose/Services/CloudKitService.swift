@@ -578,11 +578,24 @@ final class FamilyCloudSyncService {
             }
             for record in readingRecords {
                 let recordName = record.recordID.recordName
-                // Readings for a child this device hasn't received yet arrive on the next sync.
-                guard
-                    let childRecordName = record[Constants.childRecordNameField] as? String,
-                    let child = childrenByRecordName[childRecordName]
-                else { continue }
+                // Like doses: if the child record hasn't arrived, create it from the fallback fields.
+                // The zone token has already moved past this record, so skipping would lose it.
+                let childRecordName = record[Constants.childRecordNameField] as? String
+                let child: Child
+                if let childRecordName, let existingChild = childrenByRecordName[childRecordName] {
+                    child = existingChild
+                } else {
+                    let newChild = Child(
+                        name: (record[Constants.childFallbackNameField] as? String) ?? "Child",
+                        colorHex: (record[Constants.childFallbackColorField] as? String) ?? "#4ECDC4",
+                        cloudRecordName: childRecordName
+                    )
+                    context.insert(newChild)
+                    if let childRecordName {
+                        childrenByRecordName[childRecordName] = newChild
+                    }
+                    child = newChild
+                }
 
                 let timestamp = (record[Constants.timestampField] as? Date) ?? .now
                 let celsius = record[Constants.readingCelsiusField] as? Double
@@ -738,6 +751,8 @@ final class FamilyCloudSyncService {
         let recordID = CKRecord.ID(recordName: recordName, zoneID: zoneID)
         let record = CKRecord(recordType: Constants.readingRecordType, recordID: recordID)
         record[Constants.childRecordNameField] = (child.cloudRecordName ?? "") as CKRecordValue
+        record[Constants.childFallbackNameField] = child.name as CKRecordValue
+        record[Constants.childFallbackColorField] = child.colorHex as CKRecordValue
         record[Constants.timestampField] = reading.timestamp as CKRecordValue
         record[Constants.readingCelsiusField] = reading.celsius as CKRecordValue?
         record[Constants.readingSymptomsField] = (reading.symptoms ?? "") as CKRecordValue
@@ -756,14 +771,15 @@ final class FamilyCloudSyncService {
         }
     }
 
-    func deleteChild(_ child: Child, doseRecordNames: [String]) async {
+    /// Takes record names rather than the model, which is already deleted locally by the time this runs.
+    func deleteChild(recordName childRecordName: String?, relatedRecordNames: [String]) async {
         guard let db = activeDatabase, let zoneID = activeZoneID else { return }
 
         var idsToDelete: [CKRecord.ID] = []
-        if let childRecordName = child.cloudRecordName {
+        if let childRecordName {
             idsToDelete.append(CKRecord.ID(recordName: childRecordName, zoneID: zoneID))
         }
-        for recordName in doseRecordNames {
+        for recordName in relatedRecordNames {
             idsToDelete.append(CKRecord.ID(recordName: recordName, zoneID: zoneID))
         }
         guard !idsToDelete.isEmpty else { return }

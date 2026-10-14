@@ -53,12 +53,9 @@ enum LockScreenDoseRouter {
                 expiresAt: Date.now.addingTimeInterval(PendingDoseConfirmation.window)
             )
         )
+        // Return right away so the confirming tap is never queued behind this one.
+        // Widgets and the Live Activity each schedule their own refresh at the expiry time.
         reloadSurfaces(viewModel: viewModel, context: context)
-
-        try? await Task.sleep(for: .seconds(PendingDoseConfirmation.window + 0.5))
-        if WidgetDataStore.readPendingConfirmation() == nil {
-            reloadSurfaces(viewModel: viewModel, context: context)
-        }
     }
 
     private static func reloadSurfaces(viewModel: DoseViewModel, context: ModelContext) {
