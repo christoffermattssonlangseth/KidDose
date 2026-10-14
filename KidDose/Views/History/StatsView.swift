@@ -82,17 +82,13 @@ struct StatsView: View {
         let date: Date
         /// In the user's display unit.
         let value: Double
-        let child: String
         let isFever: Bool
     }
 
     private struct DoseSpan: Identifiable {
         let id: String
         let given: Date
-        /// When the next dose was allowed, clamped to now so bars stay inside the chart.
-        let clears: Date
         let medication: Medication
-        let lane: String
     }
 
     private struct DayCount: Identifiable {
@@ -109,8 +105,6 @@ struct StatsView: View {
     private var start: Date {
         calendar.startOfDay(for: calendar.date(byAdding: .day, value: -(range.rawValue - 1), to: now)!)
     }
-    private var showsChildNames: Bool { children.count > 1 }
-
     private var temperaturePoints: [TemperaturePoint] {
         children.flatMap { child in
             child.readings.compactMap { reading -> TemperaturePoint? in
@@ -119,7 +113,6 @@ struct StatsView: View {
                     id: reading.id,
                     date: reading.timestamp,
                     value: TemperatureFormat.fromCelsius(reading.celsius),
-                    child: child.name,
                     isFever: reading.celsius >= 38.0
                 )
             }
@@ -131,13 +124,7 @@ struct StatsView: View {
         children.flatMap { child in
             child.doses.compactMap { dose -> DoseSpan? in
                 guard dose.timestamp >= start else { return nil }
-                return DoseSpan(
-                    id: dose.id,
-                    given: dose.timestamp,
-                    clears: min(dose.timestamp.addingTimeInterval(dose.intervalHours * 3600), now),
-                    medication: dose.medication,
-                    lane: showsChildNames ? "\(child.name) · \(dose.medication.displayName)" : dose.medication.displayName
-                )
+                return DoseSpan(id: dose.id, given: dose.timestamp, medication: dose.medication)
             }
         }
         .sorted { $0.given < $1.given }
@@ -152,16 +139,6 @@ struct StatsView: View {
             byMedication.map { DayCount(day: day, medication: $0.key, count: $0.value) }
         }
         .sorted { ($0.day, $0.medication.rawValue) < ($1.day, $1.medication.rawValue) }
-    }
-
-    /// Lanes in a fixed order: child, then ibuprofen before paracetamol.
-    private var lanes: [String] {
-        children.flatMap { child in
-            Medication.allCases.compactMap { medication in
-                let lane = showsChildNames ? "\(child.name) · \(medication.displayName)" : medication.displayName
-                return doseSpans.contains { $0.lane == lane } ? lane : nil
-            }
-        }
     }
 
     private var medicationColors: KeyValuePairs<String, Color> {
@@ -201,9 +178,8 @@ struct StatsView: View {
                     )
                     .padding(.top, 24)
                 } else {
-                    if !temperaturePoints.isEmpty { temperatureCard }
+                    temperatureCard
                     if !doseSpans.isEmpty {
-                        doseTimelineCard
                         dosesPerDayCard
                     }
                 }
@@ -266,89 +242,103 @@ struct StatsView: View {
         .accessibilityElement(children: .combine)
     }
 
-    // MARK: Temperature
+    // MARK: Temperature & doses
 
+    /// Temperature line with each dose marked along the bottom edge, so it's easy to see
+    /// how the fever moved after a dose.
     private var temperatureCard: some View {
         let values = temperaturePoints.map(\.value)
         let fever = TemperatureFormat.fromCelsius(38.0)
         let step: Double = TemperatureFormat.usesFahrenheit ? 2 : 1
-        let low = (min(values.min() ?? fever, TemperatureFormat.fromCelsius(36.5)) / step).rounded(.down) * step
+        let low = (min(values.min() ?? fever, TemperatureFormat.fromCelsius(36.5)) / step).rounded(.down) * step - step / 2
         let high = (max(values.max() ?? fever, TemperatureFormat.fromCelsius(39.5)) / step).rounded(.up) * step
-        let selected = nearestTemperature(to: selectedTemperatureDate)
+        // Dose markers sit in the half-step band below the lowest gridline.
+        let doseBand = low + step / 4
+        let selectedDate = selectedTemperatureDate
+        let selected = nearestTemperature(to: selectedDate)
+        let lastDose = selectedDate.flatMap { date in doseSpans.last { $0.given <= date } }
+        let medications = Medication.allCases.filter { med in doseSpans.contains { $0.medication == med } }
 
-        return card(title: "Temperature", subtitle: "Dashed line: fever, \(TemperatureFormat.display(38.0))") {
+        return card(
+            title: doseSpans.isEmpty ? "Temperature" : "Temperature & doses",
+            subtitle: doseSpans.isEmpty
+                ? "Dashed line: fever, \(TemperatureFormat.display(38.0))"
+                : "Dots along the bottom are doses. Dashed line: fever, \(TemperatureFormat.display(38.0))"
+        ) {
             Chart {
                 RuleMark(y: .value("Fever", fever))
                     .foregroundStyle(Color.red.opacity(0.5))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
 
                 ForEach(temperaturePoints) { point in
-                    LineMark(
-                        x: .value("Time", point.date),
-                        y: .value("Temperature", point.value),
-                        series: .value("Child", point.child)
-                    )
-                    .interpolationMethod(.monotone)
-                    .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .foregroundStyle(by: .value("Child", point.child))
+                    LineMark(x: .value("Time", point.date), y: .value("Temperature", point.value))
+                        .interpolationMethod(.monotone)
+                        .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .foregroundStyle(Color.primary.opacity(0.75))
 
                     PointMark(x: .value("Time", point.date), y: .value("Temperature", point.value))
                         .symbolSize(point.isFever ? 50 : 30)
-                        .foregroundStyle(point.isFever ? Color.red : Color.primary.opacity(0.7))
+                        .foregroundStyle(point.isFever ? Color.red : Color.primary.opacity(0.75))
                 }
 
-                if let selected {
-                    RuleMark(x: .value("Selected", selected.date))
+                ForEach(doseSpans) { dose in
+                    PointMark(x: .value("Dose", dose.given), y: .value("Temperature", doseBand))
+                        .symbol(.circle)
+                        .symbolSize(60)
+                        .foregroundStyle(dose.medication.color)
+                }
+
+                if let selectedDate, selected != nil || lastDose != nil {
+                    RuleMark(x: .value("Selected", selected?.date ?? selectedDate))
                         .foregroundStyle(Color.secondary.opacity(0.35))
                         .annotation(position: .top, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
                             calloutLabel(
-                                TemperatureFormat.display(TemperatureFormat.toCelsius(selected.value)),
-                                detail: (showsChildNames ? "\(selected.child) · " : "")
-                                    + selected.date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+                                selected.map { TemperatureFormat.display(TemperatureFormat.toCelsius($0.value)) + " at "
+                                    + $0.date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) } ?? "No temperature",
+                                detail: lastDose.map { "Last dose: \($0.medication.displayName) "
+                                    + $0.given.formatted(.dateTime.weekday(.abbreviated).hour().minute()) } ?? "No dose before this"
                             )
                         }
                 }
             }
-            .chartForegroundStyleScale(domain: children.map(\.name), range: children.map { showsChildNames ? $0.color : Color.primary.opacity(0.75) })
-            .chartLegend(showsChildNames ? .visible : .hidden)
             .chartXScale(domain: start...now)
             .chartYScale(domain: low...high)
+            .chartYAxis {
+                AxisMarks(values: .stride(by: step)) { value in
+                    if let number = value.as(Double.self), number >= low + step / 2 {
+                        AxisGridLine()
+                        AxisValueLabel()
+                    }
+                }
+            }
             .chartXAxis { timeAxis }
             .chartXSelection(value: $selectedTemperatureDate)
-            .frame(height: 210)
-            .accessibilityLabel("Temperature over the last \(range.title)")
+            .frame(height: 230)
+            .accessibilityLabel("Temperature and doses over the last \(range.title)")
+
+            if !medications.isEmpty {
+                HStack(spacing: 14) {
+                    ForEach(medications, id: \.self) { medication in
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(medication.color)
+                                .frame(width: 8, height: 8)
+                            Text(medication.displayName)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
         }
     }
 
     private func nearestTemperature(to date: Date?) -> TemperaturePoint? {
         guard let date else { return nil }
-        return temperaturePoints.min { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }
-    }
-
-    // MARK: Dose timeline
-
-    private var doseTimelineCard: some View {
-        card(title: "Doses", subtitle: "Each dot is a dose; the bar is its waiting period") {
-            Chart(doseSpans) { span in
-                BarMark(
-                    xStart: .value("Given", span.given),
-                    xEnd: .value("Next allowed", span.clears),
-                    y: .value("Medication", span.lane),
-                    height: .fixed(10)
-                )
-                .clipShape(Capsule())
-                .foregroundStyle(span.medication.color.opacity(0.25))
-
-                PointMark(x: .value("Given", span.given), y: .value("Medication", span.lane))
-                    .symbolSize(70)
-                    .foregroundStyle(span.medication.color)
-            }
-            .chartXScale(domain: start...now)
-            .chartYScale(domain: lanes)
-            .chartXAxis { timeAxis }
-            .frame(height: CGFloat(lanes.count) * 46 + 28)
-            .accessibilityLabel("Dose times over the last \(range.title)")
-        }
+        // Only snap to a reading within 3 hours, so tapping between readings shows doses only.
+        return temperaturePoints
+            .filter { abs($0.date.timeIntervalSince(date)) < 3 * 3600 }
+            .min { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }
     }
 
     // MARK: Doses per day

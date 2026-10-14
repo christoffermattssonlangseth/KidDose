@@ -111,9 +111,14 @@ struct HomeView: View {
                 }
             }
             .animation(.snappy, value: viewModel.undoableDose?.persistentModelID)
-            .navigationTitle("KidDose")
-            .navigationBarTitleDisplayMode(.large)
+            // No visible title: the child switcher is the top of the screen. The title still
+            // names the screen for VoiceOver.
+            .navigationTitle("Home")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    EmptyView()
+                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if selectedChild != nil {
                         Button {
