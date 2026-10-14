@@ -478,24 +478,24 @@ struct CountdownView: View {
             let remaining = targetDate.timeIntervalSince(context.date)
             let progress = KidDoseTime.progress(start: startDate, end: targetDate, now: context.date)
 
-            HStack(spacing: 14) {
+            HStack(spacing: 16) {
                 DoseProgressRing(
                     progress: remaining > 0 ? progress : 1,
                     tint: ringTint(remaining),
-                    lineWidth: 6
+                    lineWidth: 7
                 ) {
                     Image(systemName: ringSymbol(remaining))
-                        .font(.subheadline.weight(.bold))
+                        .font(.headline.weight(.bold))
                         .foregroundStyle(ringTint(remaining))
                         .contentTransition(.symbolEffect(.replace))
                         .symbolEffect(.pulse, options: .repeating, isActive: remaining <= -60)
                 }
-                .frame(width: 52, height: 52)
+                .frame(width: 64, height: 64)
 
                 VStack(alignment: .leading, spacing: 2) {
                     if remaining > 0 {
                         Text(KidDoseTime.timer(remaining))
-                            .font(.system(.title, design: .rounded).weight(.semibold).monospacedDigit())
+                            .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
                             .foregroundStyle(medication.color)
                             .contentTransition(.numericText(countsDown: true))
                             .animation(.snappy, value: Int(remaining))
