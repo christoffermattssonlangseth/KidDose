@@ -51,11 +51,21 @@ extension StatsData {
     }
 }
 
-/// Charts of doses and temperature for the children selected in History.
+/// Charts of doses and temperature, one child at a time.
 struct StatsView: View {
     let data: StatsData
 
-    private var children: [StatsData.ChildSeries] { data.children }
+    @State private var selectedChild: Int
+
+    /// `initialChild` is the child History is filtered to, if any.
+    init(data: StatsData, initialChild: String? = nil) {
+        self.data = data
+        _selectedChild = State(initialValue: data.children.firstIndex { $0.name == initialChild } ?? 0)
+    }
+
+    private var children: [StatsData.ChildSeries] {
+        data.children.indices.contains(selectedChild) ? [data.children[selectedChild]] : []
+    }
 
     @State private var range: StatsRange = .threeDays
     @State private var selectedTemperatureDate: Date?
@@ -172,6 +182,10 @@ struct StatsView: View {
     /// The screen without its scroll view, which also lets tests render it to an image.
     var content: some View {
             VStack(alignment: .leading, spacing: 16) {
+                if data.children.count > 1 {
+                    childPicker
+                }
+
                 Picker("Range", selection: $range) {
                     ForEach(StatsRange.allCases) { Text($0.title).tag($0) }
                 }
@@ -197,6 +211,27 @@ struct StatsView: View {
             .padding(.horizontal)
             .padding(.bottom, 24)
             .animation(.snappy, value: range)
+            .animation(.snappy, value: selectedChild)
+    }
+
+    private var childPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(data.children.indices, id: \.self) { index in
+                    let child = data.children[index]
+                    SelectableChip(
+                        label: child.name,
+                        isSelected: index == selectedChild,
+                        tint: child.color
+                    ) {
+                        selectedChild = index
+                        selectedTemperatureDate = nil
+                        selectedDay = nil
+                    }
+                }
+            }
+        }
+        .sensoryFeedback(.selection, trigger: selectedChild)
     }
 
     // MARK: Summary

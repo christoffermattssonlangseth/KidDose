@@ -101,7 +101,10 @@ struct HistoryView: View {
                 exportToolbarItem
             }
             .navigationDestination(isPresented: $showStats) {
-                StatsView(data: StatsData(children: filteredChildren))
+                StatsView(
+                    data: StatsData(children: Array(visibleChildren)),
+                    initialChild: selectedChildID == nil ? nil : filteredChildren.first?.name
+                )
             }
             .navigationDestination(item: $selectedDose) { dose in
                 DoseDetailView(dose: dose, onDelete: deleteFromDetail)
